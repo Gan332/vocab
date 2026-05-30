@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>背单词</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+.app { max-width: 800px; margin: 0 auto; padding: 16px; }
+header { background: #fff; border-radius: 16px; padding: 16px 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+.tabs { display: flex; gap: 4px; }
+.tab { padding: 8px 18px; border: none; background: transparent; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; color: #666; transition: all .2s; }
+.tab:hover { background: #f0f2f5; color: #333; }
+.tab.active { background: #1a1a2e; color: #fff; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* 词库页 */
+.bank-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.bank-header h2 { font-size: 18px; font-weight: 600; }
+.import-area { background: #fff; border: 2px dashed #ccc; border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 16px; }
+.import-area:hover, .import-area.dragover { border-color: #1a1a2e; background: #f8f9ff; }
+.import-area .icon { font-size: 40px; margin-bottom: 8px; }
+.import-area p { color: #666; font-size: 14px; }
+.import-area input[type=file] { display: none; }
+.bank-list { display: grid; gap: 12px; }
+.bank-card { background: #fff; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all .2s; }
+.bank-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.bank-card .info { flex: 1; }
+.bank-card .name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.bank-card .meta { font-size: 13px; color: #888; }
+.bank-card .actions { display: flex; gap: 8px; }
+.bank-card .actions button { padding: 6px 14px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .2s; }
+.btn-study { background: #1a1a2e; color: #fff; }
+.btn-study:hover { background: #2d2d4e; }
+.btn-del { background: #fee2e2; color: #dc2626; }
+.btn-del:hover { background: #fecaca; }
+.empty-state { text-align: center; padding: 40px 20px; color: #999; }
+.empty-state .icon { font-size: 48px; margin-bottom: 8px; }
+
+/* 学习页 - 设置 */
+.learn-setup { background: #fff; border-radius: 16px; padding: 32px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.learn-setup h2 { margin-bottom: 16px; font-size: 18px; }
+.learn-setup select, .learn-setup button { padding: 10px 20px; border-radius: 10px; font-size: 15px; border: 1px solid #ddd; margin: 4px; }
+.learn-setup select { min-width: 200px; background: #fff; }
+.learn-setup .btn-start { background: #1a1a2e; color: #fff; border: none; cursor: pointer; font-weight: 600; }
+.learn-setup .btn-start:hover { background: #2d2d4e; }
+.learn-setup .btn-resume { background: #fbbf24; color: #1a1a2e; border: none; cursor: pointer; font-weight: 600; margin-top: 8px; }
+.learn-setup .btn-resume:hover { background: #f59e0b; }
+.learn-setup .options { margin: 16px 0; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.learn-setup .options label { font-size: 14px; color: #555; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.learn-setup .mode-group { margin: 12px 0; display: flex; justify-content: center; gap: 12px; }
+.learn-setup .mode-group label { font-size: 14px; color: #555; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 14px; border: 1px solid #e0e0e0; border-radius: 20px; transition: all .2s; }
+.learn-setup .mode-group label:has(input:checked) { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+
+/* 学习页 - 进行中 */
+.learn-session { display: none; }
+.learn-session.active { display: block; }
+.learn-header { background: #fff; border-radius: 12px; padding: 12px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #666; gap: 8px; }
+.learn-header .progress-text { font-weight: 600; color: #333; white-space: nowrap; }
+.learn-header .timer { font-family: monospace; font-size: 16px; white-space: nowrap; }
+.learn-header .header-actions { display: flex; gap: 6px; }
+.learn-header .header-actions button { padding: 6px 14px; border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.learn-header .header-actions button:hover { background: #f5f5f5; }
+.learn-header .header-actions .btn-pause { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+.learn-header .header-actions .btn-pause:hover { background: #dcfce7; }
+.learn-header .header-actions .btn-pause.paused { background: #fef9c3; border-color: #fde047; color: #a16207; }
+
+/* 闪卡模式 */
+.card-container { perspective: 1000px; margin-bottom: 20px; cursor: pointer; }
+.card { background: #fff; border-radius: 20px; padding: 60px 24px; box-shadow: 0 4px 20px rgba(0,0,0,.08); text-align: center; min-height: 260px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: transform .3s; position: relative; }
+.card .word { font-size: 32px; font-weight: 700; color: #1a1a2e; margin-bottom: 20px; }
+.card .definition { font-size: 18px; color: #555; display: none; line-height: 1.6; }
+.card.show-def .definition { display: block; }
+.card .hint { font-size: 13px; color: #aaa; margin-top: 24px; }
+.card .tag { position: absolute; top: 16px; right: 16px; font-size: 12px; background: #f0f2f5; padding: 4px 10px; border-radius: 20px; color: #888; }
+
+.learn-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.learn-actions button { padding: 14px 32px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all .2s; min-width: 120px; }
+.btn-forgot { background: #fee2e2; color: #dc2626; }
+.btn-forgot:hover { background: #fecaca; }
+.btn-remember { background: #dcfce7; color: #16a34a; }
+.btn-remember:hover { background: #bbf7d0; }
+
+/* 答题模式 */
+.quiz-card { background: #fff; border-radius: 20px; padding: 40px 24px 24px; box-shadow: 0 4px 20px rgba(0,0,0,.08); text-align: center; min-height: 260px; position: relative; margin-bottom: 20px; }
+.quiz-card .question { font-size: 28px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+.quiz-card .question-label { font-size: 13px; color: #aaa; margin-bottom: 20px; }
+.quiz-card .tag { position: absolute; top: 16px; right: 16px; font-size: 12px; background: #f0f2f5; padding: 4px 10px; border-radius: 20px; color: #888; }
+.quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 600px; margin: 0 auto; }
+.quiz-option { padding: 14px 16px; border: 2px solid #e0e0e0; border-radius: 12px; background: #fff; font-size: 15px; cursor: pointer; transition: all .2s; text-align: center; line-height: 1.4; }
+.quiz-option:hover:not(.disabled) { border-color: #1a1a2e; background: #f8f9ff; }
+.quiz-option.correct { border-color: #16a34a; background: #dcfce7; color: #16a34a; font-weight: 600; }
+.quiz-option.wrong { border-color: #dc2626; background: #fee2e2; color: #dc2626; font-weight: 600; }
+.quiz-option.disabled { cursor: default; opacity: .7; }
+.quiz-option.disabled.correct, .quiz-option.disabled.wrong { opacity: 1; }
+
+/* 暂停遮罩 */
+.pause-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; justify-content: center; align-items: center; }
+.pause-overlay.active { display: flex; }
+.pause-dialog { background: #fff; border-radius: 20px; padding: 32px; text-align: center; max-width: 320px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+.pause-dialog .icon { font-size: 48px; margin-bottom: 8px; }
+.pause-dialog h3 { font-size: 20px; margin-bottom: 4px; }
+.pause-dialog p { color: #888; font-size: 14px; margin-bottom: 20px; }
+.pause-dialog .pause-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.pause-dialog button { padding: 12px 28px; border: none; border-radius: 10px; font-size: 15px; cursor: pointer; font-weight: 500; }
+.pause-dialog .btn-continue { background: #1a1a2e; color: #fff; }
+.pause-dialog .btn-continue:hover { background: #2d2d4e; }
+.pause-dialog .btn-savequit { background: #f0f2f5; color: #333; }
+.pause-dialog .btn-savequit:hover { background: #e0e0e0; }
+
+/* 结果页 */
+.result-screen { background: #fff; border-radius: 20px; padding: 40px 24px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.result-screen h2 { font-size: 24px; margin-bottom: 8px; }
+.result-screen .sub { color: #888; margin-bottom: 24px; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-item { background: #f8f9fa; border-radius: 12px; padding: 16px; }
+.stat-item .num { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+.stat-item .label { font-size: 13px; color: #888; margin-top: 4px; }
+.result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.result-actions button { padding: 12px 28px; border: none; border-radius: 10px; font-size: 15px; cursor: pointer; }
+.btn-again { background: #1a1a2e; color: #fff; }
+.btn-back { background: #f0f2f5; color: #333; }
+
+/* 统计页 */
+.stats-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+.stats-summary .card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.stats-summary .num { font-size: 24px; font-weight: 700; color: #1a1a2e; }
+.stats-summary .label { font-size: 13px; color: #888; margin-top: 4px; }
+
+.history-list { display: grid; gap: 8px; }
+.history-item { background: #fff; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.history-item .left { display: flex; gap: 12px; align-items: center; }
+.history-item .bank-name { font-weight: 600; }
+.history-item .detail { color: #888; font-size: 13px; }
+.history-item .right { text-align: right; }
+.history-item .acc { font-weight: 600; }
+.history-item .date { font-size: 12px; color: #aaa; }
+.history-item .mode-tag { font-size: 11px; background: #f0f2f5; padding: 2px 8px; border-radius: 10px; color: #888; }
+.empty-history { text-align: center; padding: 40px; color: #999; }
+
+@media (max-width: 600px) {
+  .app { padding: 10px; }
+  header { flex-direction: column; gap: 10px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stats-summary { grid-template-columns: 1fr 1fr; }
+  .card .word { font-size: 26px; }
+  .learn-actions button { min-width: 100px; padding: 12px 20px; }
+  .quiz-options { grid-template-columns: 1fr; }
+  .learn-header { flex-wrap: wrap; justify-content: center; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <h1>背单词</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="banks">词库</button>
+      <button class="tab" data-tab="learn">学习</button>
+      <button class="tab" data-tab="stats">统计</button>
+    </div>
+  </header>
+
+  <!-- 词库页 -->
+  <div class="page active" id="page-banks">
+    <div class="bank-header">
+      <h2>我的词库</h2>
+    </div>
+    <div class="import-area" id="dropZone">
+      <div class="icon">📂</div>
+      <p>点击或拖拽导入 TXT 词库文件</p>
+      <p style="font-size:12px;color:#aaa;margin-top:4px;">每行格式: 单词 - 释义 或 单词\t释义 或 单词|释义</p>
+      <input type="file" id="fileInput" accept=".txt">
+    </div>
+    <div class="bank-list" id="bankList"></div>
+  </div>
+
+  <!-- 学习页 -->
+  <div class="page" id="page-learn">
+    <div class="learn-setup" id="learnSetup">
+      <h2 id="setupTitle">选择词库开始学习</h2>
+
+      <div id="resumeBanner" style="display:none;margin-bottom:12px;">
+        <button class="btn-resume" id="btnResume">▶ 继续上次学习</button>
+        <button style="padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;margin:4px;" id="btnClearSaved">放弃</button>
+      </div>
+
+      <div>
+        <select id="bankSelect"><option value="">-- 请选择词库 --</option></select>
+      </div>
+      <div class="options">
+        <label><input type="radio" name="direction" value="word-first" checked> 看单词回忆释义</label>
+        <label><input type="radio" name="direction" value="def-first"> 看释义回忆单词</label>
+      </div>
+      <div class="mode-group">
+        <label><input type="radio" name="mode" value="flashcard" checked> 闪卡模式</label>
+        <label><input type="radio" name="mode" value="quiz"> 答题测验</label>
+      </div>
+      <div>
+        <button class="btn-start" id="btnStart">开始学习</button>
+      </div>
+    </div>
+
+    <div class="learn-session" id="learnSession">
+      <div class="learn-header">
+        <span class="progress-text" id="progressText">1 / 10</span>
+        <span class="timer" id="timerDisplay">00:00</span>
+        <div class="header-actions">
+          <button class="btn-pause" id="btnPause">⏸ 暂停</button>
+          <button class="btn-quit" id="btnQuit">退出</button>
+        </div>
+      </div>
+
+      <!-- 闪卡 -->
+      <div id="flashcardArea">
+        <div class="card-container" id="cardContainer">
+          <div class="card" id="card">
+            <div class="tag" id="cardTag"></div>
+            <div class="word" id="cardWord"></div>
+            <div class="definition" id="cardDef"></div>
+            <div class="hint">点击卡片显示答案</div>
+          </div>
+        </div>
+        <div class="learn-actions" id="learnActions" style="display:none;">
+          <button class="btn-forgot" id="btnForgot">不认识</button>
+          <button class="btn-remember" id="btnRemember">认识了</button>
+        </div>
+      </div>
+
+      <!-- 答题 -->
+      <div id="quizArea" style="display:none;">
+        <div class="quiz-card">
+          <div class="tag" id="quizTag"></div>
+          <div class="question-label" id="quizLabel">请选择正确的释义</div>
+          <div class="question" id="quizQuestion">word</div>
+        </div>
+        <div class="quiz-options" id="quizOptions"></div>
+      </div>
+    </div>
+
+    <!-- 暂停遮罩 -->
+    <div class="pause-overlay" id="pauseOverlay">
+      <div class="pause-dialog">
+        <div class="icon">⏸️</div>
+        <h3>已暂停</h3>
+        <p id="pauseInfo">进度已自动保存</p>
+        <div class="pause-actions">
+          <button class="btn-continue" id="btnContinue">继续学习</button>
+          <button class="btn-savequit" id="btnSaveQuit">保存并退出</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="learn-session" id="learnResult">
+      <div class="result-screen">
+        <h2 id="resultTitle">学习完成！</h2>
+        <p class="sub" id="resultBank"></p>
+        <div class="stats-grid">
+          <div class="stat-item"><div class="num" id="resultTotal">0</div><div class="label">总题数</div></div>
+          <div class="stat-item"><div class="num" id="resultRemembered">0</div><div class="label">正确</div></div>
+          <div class="stat-item"><div class="num" id="resultAccuracy">0%</div><div class="label">正确率</div></div>
+          <div class="stat-item"><div class="num" id="resultDuration">00:00</div><div class="label">用时</div></div>
+          <div class="stat-item"><div class="num" id="resultAvgTime">0s</div><div class="label">平均每题</div></div>
+          <div class="stat-item"><div class="num" id="resultForgotten">0</div><div class="label">错误</div></div>
+        </div>
+        <div class="result-actions">
+          <button class="btn-again" id="btnAgain">再来一轮</button>
+          <button class="btn-back" id="btnBackToSetup">返回选择</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计页 -->
+  <div class="page" id="page-stats">
+    <div class="stats-summary" id="statsSummary">
+      <div class="card"><div class="num" id="statSessions">0</div><div class="label">学习次数</div></div>
+      <div class="card"><div class="num" id="statAvgAcc">0%</div><div class="label">平均正确率</div></div>
+      <div class="card"><div class="num" id="statTotalTime">0m</div><div class="label">总用时</div></div>
+    </div>
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">历史记录</h3>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<script>
+// ============ Data Layer ============
+const DB = {
+  get(key, def) {
+    try { const v = localStorage.getItem('vocab_' + key); return v ? JSON.parse(v) : def; }
+    catch { return def; }
+  },
+  set(key, val) { localStorage.setItem('vocab_' + key, JSON.stringify(val)); },
+  remove(key) { localStorage.removeItem('vocab_' + key); },
+  getBanks() { return this.get('banks', []); },
+  setBanks(b) { this.set('banks', b); },
+  getHistory() { return this.get('history', []); },
+  setHistory(h) { this.set('history', h); },
+  addHistory(entry) {
+    const h = this.getHistory();
+    h.unshift(entry);
+    if (h.length > 200) h.length = 200;
+    this.setHistory(h);
+    return h;
+  }
+};
+
+// ============ Bank Management ============
+function parseTxt(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const cards = [];
+  for (const line of lines) {
+    let parts = null;
+    if (line.includes('\t')) parts = line.split('\t');
+    else if (line.includes(' - ')) parts = line.split(' - ');
+    else if (line.includes(' | ')) parts = line.split(' | ');
+    else if (line.includes('|')) parts = line.split('|');
+    else if (line.includes('：')) parts = line.split('：');
+    else if (line.includes(':')) parts = line.split(':');
+    if (parts && parts.length >= 2) {
+      cards.push({ word: parts[0].trim(), definition: parts.slice(1).join(' ').trim() });
+    }
+  }
+  return cards;
+}
+
+function importBank(name, cards) {
+  const banks = DB.getBanks();
+  const existing = banks.findIndex(b => b.name === name);
+  if (existing >= 0) {
+    banks[existing].cards = cards;
+    banks[existing].count = cards.length;
+    banks[existing].updatedAt = Date.now();
+  } else {
+    banks.push({ name, cards, count: cards.length, createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  DB.setBanks(banks);
+  renderBanks();
+}
+
+function deleteBank(name) {
+  let banks = DB.getBanks();
+  banks = banks.filter(b => b.name !== name);
+  DB.setBanks(banks);
+  renderBanks();
+  populateBankSelect();
+}
+
+function getBank(name) {
+  return DB.getBanks().find(b => b.name === name);
+}
+
+// ============ Rendering ============
+function renderBanks() {
+  const el = document.getElementById('bankList');
+  const banks = DB.getBanks();
+  if (!banks.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📖</div><p>还没有词库，导入一个 TXT 文件开始吧</p></div>';
+    return;
+  }
+  el.innerHTML = banks.map(b => `
+    <div class="bank-card" data-bank="${escAttr(b.name)}">
+      <div class="info">
+        <div class="name">${escHtml(b.name)}</div>
+        <div class="meta">${b.count} 个单词 · ${new Date(b.updatedAt).toLocaleDateString()}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-study">学习</button>
+        <button class="btn-del">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function populateBankSelect() {
+  const sel = document.getElementById('bankSelect');
+  const banks = DB.getBanks();
+  sel.innerHTML = '<option value="">-- 请选择词库 --</option>' +
+    banks.map(b => `<option value="${escAttr(b.name)}">${escHtml(b.name)} (${b.count}词)</option>`).join('');
+}
+
+function renderHistory() {
+  const history = DB.getHistory();
+  const el = document.getElementById('historyList');
+  if (!history.length) {
+    el.innerHTML = '<div class="empty-history">暂无学习记录</div>';
+    return;
+  }
+  const modeLabel = { flashcard: '闪卡', quiz: '答题' };
+  el.innerHTML = history.map(h => `
+    <div class="history-item">
+      <div class="left">
+        <span class="bank-name">${escHtml(h.bankName)}</span>
+        <span class="detail">${h.total} 题 · ${h.remembered} 正确</span>
+        <span class="mode-tag">${modeLabel[h.mode] || '闪卡'}</span>
+      </div>
+      <div class="right">
+        <div class="acc">${h.accuracy}%</div>
+        <div class="date">${formatDuration(h.duration)} · ${new Date(h.date).toLocaleString()}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateStatsSummary() {
+  const history = DB.getHistory();
+  const sessions = history.length;
+  if (!sessions) {
+    document.getElementById('statSessions').textContent = '0';
+    document.getElementById('statAvgAcc').textContent = '0%';
+    document.getElementById('statTotalTime').textContent = '0m';
+    return;
+  }
+  const avgAcc = Math.round(history.reduce((s, h) => s + h.accuracy, 0) / sessions);
+  const totalTime = history.reduce((s, h) => s + h.duration, 0);
+  document.getElementById('statSessions').textContent = sessions;
+  document.getElementById('statAvgAcc').textContent = avgAcc + '%';
+  document.getElementById('statTotalTime').textContent = Math.round(totalTime / 60) + 'm';
+}
+
+// ============ Learning Engine ============
+let learnState = null;
+let savedSessionCheck = null;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function startLearn(bankName) {
+  document.querySelector('[data-tab="learn"]').click();
+  document.getElementById('bankSelect').value = bankName;
+  beginSession();
+}
+
+// ============ Session Management (Pause / Resume) ============
+function saveSession() {
+  if (!learnState) return;
+  const elapsed = Math.round((Date.now() - learnState.startTime) / 1000);
+  const saved = {
+    bankName: learnState.bankName,
+    cards: learnState.cards,
+    index: learnState.index,
+    remembered: learnState.remembered,
+    forgotten: learnState.forgotten,
+    elapsedSeconds: elapsed,
+    mode: learnState.mode,
+    direction: learnState.direction,
+    totalCards: learnState.totalCards,
+    answered: false,
+  };
+  DB.set('savedSession', saved);
+}
+
+function clearSavedSession() {
+  DB.remove('savedSession');
+  document.getElementById('resumeBanner').style.display = 'none';
+  savedSessionCheck = null;
+}
+
+function checkSavedSession() {
+  const saved = DB.get('savedSession', null);
+  const banner = document.getElementById('resumeBanner');
+  const btn = document.getElementById('btnResume');
+  if (saved && saved.cards && saved.cards.length) {
+    savedSessionCheck = saved;
+    btn.textContent = `▶ 继续上次「${escHtml(saved.bankName)}」(${saved.remembered + saved.forgotten}/${saved.totalCards})`;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+    savedSessionCheck = null;
+  }
+}
+
+function resumeSession() {
+  const saved = savedSessionCheck;
+  if (!saved) return;
+  clearSavedSession();
+
+  const bank = getBank(saved.bankName);
+  if (!bank) { alert('词库已不存在'); return; }
+
+  learnState = {
+    bankName: saved.bankName,
+    cards: saved.cards,
+    index: saved.index,
+    remembered: saved.remembered,
+    forgotten: saved.forgotten,
+    startTime: Date.now() - (saved.elapsedSeconds * 1000),
+    timerInterval: null,
+    totalCards: saved.totalCards,
+    answered: false,
+    mode: saved.mode || 'flashcard',
+    direction: saved.direction || 'word-first',
+  };
+
+  document.getElementById('learnSetup').style.display = 'none';
+  document.getElementById('learnSession').classList.add('active');
+  document.getElementById('learnResult').classList.remove('active');
+
+  if (learnState.mode === 'quiz') {
+    document.getElementById('flashcardArea').style.display = 'none';
+    document.getElementById('quizArea').style.display = 'block';
+    showQuizQuestion();
+  } else {
+    document.getElementById('flashcardArea').style.display = 'block';
+    document.getElementById('quizArea').style.display = 'none';
+    showCard();
+  }
+  startTimer();
+}
+
+function pauseSession() {
+  if (!learnState) return;
+  stopTimer();
+  saveSession();
+
+  const el = learnState.mode === 'quiz' ? document.getElementById('quizArea') : document.getElementById('flashcardArea');
+  el.style.opacity = '0.4';
+  document.getElementById('btnPause').classList.add('paused');
+  document.getElementById('btnPause').textContent = '⏸ 已暂停';
+  document.getElementById('pauseOverlay').classList.add('active');
+  document.getElementById('pauseInfo').textContent =
+    `已保存至第 ${learnState.index + 1}/${learnState.totalCards} 题`;
+}
+
+function continueSession() {
+  if (!learnState) return;
+  document.getElementById('pauseOverlay').classList.remove('active');
+  const el = learnState.mode === 'quiz' ? document.getElementById('quizArea') : document.getElementById('flashcardArea');
+  el.style.opacity = '1';
+  document.getElementById('btnPause').classList.remove('paused');
+  document.getElementById('btnPause').textContent = '⏸ 暂停';
+  startTimer();
+}
+
+function saveAndQuit() {
+  if (!learnState) return;
+  saveSession();
+  document.getElementById('pauseOverlay').classList.remove('active');
+  const el = learnState.mode === 'quiz' ? document.getElementById('quizArea') : document.getElementById('flashcardArea');
+  el.style.opacity = '1';
+  stopTimer();
+  learnState = null;
+  document.getElementById('learnSession').classList.remove('active');
+  document.getElementById('learnResult').classList.remove('active');
+  document.getElementById('learnSetup').style.display = 'block';
+  checkSavedSession();
+}
+
+// Auto-save on page leave
+window.addEventListener('beforeunload', () => {
+  if (learnState) saveSession();
+});
+
+// ============ Flashcard Mode ============
+function beginSession() {
+  const sel = document.getElementById('bankSelect');
+  const name = sel.value;
+  if (!name) { alert('请选择一个词库'); return; }
+  const bank = getBank(name);
+  if (!bank || !bank.cards.length) { alert('词库为空'); return; }
+
+  const direction = document.querySelector('input[name="direction"]:checked').value;
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  clearSavedSession();
+
+  const cards = bank.cards.map(c => direction === 'word-first'
+    ? { front: c.word, back: c.definition }
+    : { front: c.definition, back: c.word }
+  );
+
+  learnState = {
+    bankName: name,
+    cards: shuffle([...cards]),
+    index: 0,
+    remembered: 0,
+    forgotten: 0,
+    startTime: Date.now(),
+    timerInterval: null,
+    totalCards: cards.length,
+    answered: false,
+    mode: mode,
+    direction: direction,
+  };
+
+  document.getElementById('learnSetup').style.display = 'none';
+  document.getElementById('learnSession').classList.add('active');
+  document.getElementById('learnResult').classList.remove('active');
+
+  if (mode === 'quiz') {
+    document.getElementById('flashcardArea').style.display = 'none';
+    document.getElementById('quizArea').style.display = 'block';
+    document.getElementById('btnPause').classList.remove('paused');
+    document.getElementById('btnPause').textContent = '⏸ 暂停';
+    showQuizQuestion();
+  } else {
+    document.getElementById('flashcardArea').style.display = 'block';
+    document.getElementById('quizArea').style.display = 'none';
+    document.getElementById('btnPause').classList.remove('paused');
+    document.getElementById('btnPause').textContent = '⏸ 暂停';
+    showCard();
+  }
+  startTimer();
+}
+
+function showCard() {
+  if (!learnState) return;
+  const state = learnState;
+  const card = state.cards[state.index];
+  if (!card) { endSession(); return; }
+
+  document.getElementById('progressText').textContent = `${state.index + 1} / ${state.totalCards}`;
+  document.getElementById('cardTag').textContent = `${state.index + 1}/${state.totalCards}`;
+  document.getElementById('cardWord').textContent = card.front;
+  document.getElementById('cardDef').textContent = card.back;
+  document.getElementById('card').classList.remove('show-def');
+  document.getElementById('cardDef').style.display = 'none';
+  document.getElementById('learnActions').style.display = 'none';
+  document.querySelector('.card .hint').style.display = 'block';
+  state.answered = false;
+}
+
+function flipCard() {
+  if (learnState && !learnState.answered) {
+    document.getElementById('card').classList.add('show-def');
+    document.getElementById('cardDef').style.display = 'block';
+    document.querySelector('.card .hint').style.display = 'none';
+    document.getElementById('learnActions').style.display = 'flex';
+  }
+}
+
+function answerCard(remembered) {
+  if (!learnState || learnState.answered) return;
+  learnState.answered = true;
+  if (remembered) learnState.remembered++;
+  else learnState.forgotten++;
+
+  document.getElementById('learnActions').style.display = 'none';
+
+  setTimeout(() => {
+    learnState.index++;
+    if (learnState.index >= learnState.cards.length) {
+      endSession();
+    } else {
+      showCard();
+    }
+  }, 200);
+}
+
+// ============ Quiz Mode ============
+function showQuizQuestion() {
+  if (!learnState) return;
+  const state = learnState;
+  const card = state.cards[state.index];
+  if (!card) { endSession(); return; }
+
+  document.getElementById('progressText').textContent = `${state.index + 1} / ${state.totalCards}`;
+  document.getElementById('quizTag').textContent = `${state.index + 1}/${state.totalCards}`;
+  document.getElementById('quizQuestion').textContent = card.front;
+  document.getElementById('quizLabel').textContent = '请选择正确的答案';
+  state.answered = false;
+
+  // Build options: 1 correct + 3 distractors
+  const correctAnswer = card.back;
+  const distractors = [];
+  const pool = state.cards.filter((_, i) => i !== state.index);
+  const shuffledPool = shuffle([...pool]);
+  for (let i = 0; i < shuffledPool.length && distractors.length < 3; i++) {
+    if (shuffledPool[i].back !== correctAnswer) {
+      distractors.push(shuffledPool[i].back);
+    }
+  }
+  // Fallback if not enough unique distractors
+  while (distractors.length < 3) {
+    distractors.push('———');
+  }
+
+  const options = shuffle([correctAnswer, ...distractors]);
+  const optionsEl = document.getElementById('quizOptions');
+  optionsEl.innerHTML = options.map((opt, i) =>
+    `<div class="quiz-option" data-index="${i}" data-correct="${opt === correctAnswer ? '1' : '0'}">${escHtml(opt)}</div>`
+  ).join('');
+}
+
+function handleQuizAnswer(el) {
+  if (!learnState || learnState.answered) return;
+  learnState.answered = true;
+
+  const isCorrect = el.dataset.correct === '1';
+  if (isCorrect) learnState.remembered++;
+  else learnState.forgotten++;
+
+  // Highlight
+  document.querySelectorAll('.quiz-option').forEach(opt => {
+    opt.classList.add('disabled');
+    if (opt.dataset.correct === '1') opt.classList.add('correct');
+    if (opt === el && !isCorrect) opt.classList.add('wrong');
+  });
+
+  setTimeout(() => {
+    learnState.index++;
+    if (learnState.index >= learnState.cards.length) {
+      endSession();
+    } else {
+      showQuizQuestion();
+    }
+  }, 800);
+}
+
+// ============ Results ============
+function endSession() {
+  const state = learnState;
+  if (!state) return;
+  stopTimer();
+
+  const total = state.totalCards;
+  const remembered = state.remembered;
+  const forgotten = state.forgotten;
+  const duration = Math.round((Date.now() - state.startTime) / 1000);
+  const accuracy = total > 0 ? Math.round((remembered / total) * 100) : 0;
+  const avgTime = total > 0 ? Math.round(duration / total) : 0;
+
+  document.getElementById('learnSession').classList.remove('active');
+  document.getElementById('learnResult').classList.add('active');
+  document.getElementById('resultTitle').textContent = state.mode === 'quiz' ? '答题完成！' : '学习完成！';
+  document.getElementById('resultBank').textContent = `词库：${state.bankName} · ${state.mode === 'quiz' ? '答题模式' : '闪卡模式'}`;
+  document.getElementById('resultTotal').textContent = total;
+  document.getElementById('resultRemembered').textContent = remembered;
+  document.getElementById('resultForgotten').textContent = forgotten;
+  document.getElementById('resultAccuracy').textContent = accuracy + '%';
+  document.getElementById('resultDuration').textContent = formatDuration(duration);
+  document.getElementById('resultAvgTime').textContent = avgTime + 's';
+
+  // Save to history
+  DB.addHistory({
+    bankName: state.bankName,
+    mode: state.mode || 'flashcard',
+    total,
+    remembered,
+    forgotten,
+    accuracy,
+    duration,
+    date: Date.now(),
+  });
+  updateStatsSummary();
+  renderHistory();
+  clearSavedSession();
+
+  learnState = null;
+}
+
+// ============ Timer ============
+function startTimer() {
+  stopTimer();
+  if (!learnState) return;
+  learnState.timerInterval = setInterval(() => {
+    const elapsed = Math.round((Date.now() - learnState.startTime) / 1000);
+    document.getElementById('timerDisplay').textContent = formatDuration(elapsed);
+  }, 1000);
+}
+
+function stopTimer() {
+  if (learnState && learnState.timerInterval) {
+    clearInterval(learnState.timerInterval);
+    learnState.timerInterval = null;
+  }
+}
+
+function quitSession() {
+  if (!learnState) return;
+  stopTimer();
+  const answered = learnState.remembered + learnState.forgotten;
+  if (answered > 0 && !confirm('确定退出？当前进度不会保存（可使用暂停按钮保存）。')) {
+    startTimer();
+    return;
+  }
+  learnState = null;
+  document.getElementById('learnSession').classList.remove('active');
+  document.getElementById('learnResult').classList.remove('active');
+  document.getElementById('learnSetup').style.display = 'block';
+}
+
+// ============ Utilities ============
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+function escAttr(s) {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// ============ Event Bindings ============
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (learnState) { alert('学习中，请先结束或暂停当前学习'); return; }
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'stats') {
+      updateStatsSummary();
+      renderHistory();
+    }
+    if (tab.dataset.tab === 'learn') {
+      populateBankSelect();
+      checkSavedSession();
+    }
+  });
+});
+
+// Import file
+document.getElementById('dropZone').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const cards = parseTxt(ev.target.result);
+    if (!cards.length) { alert('未解析到有效词条，请确保每行格式为：单词 - 释义'); return; }
+    const name = file.name.replace(/\.txt$/i, '');
+    importBank(name, cards);
+    alert(`成功导入「${name}」(${cards.length} 个单词)`);
+    populateBankSelect();
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// Drag & Drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.name.endsWith('.txt')) { alert('请导入 TXT 文件'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const cards = parseTxt(ev.target.result);
+    if (!cards.length) { alert('未解析到有效词条'); return; }
+    const name = file.name.replace(/\.txt$/i, '');
+    importBank(name, cards);
+    alert(`成功导入「${name}」(${cards.length} 个单词)`);
+    populateBankSelect();
+  };
+  reader.readAsText(file);
+});
+
+// Bank list action delegation
+document.getElementById('bankList').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const card = btn.closest('.bank-card');
+  if (!card) return;
+  const name = card.dataset.bank;
+  if (btn.classList.contains('btn-study')) { startLearn(name); }
+  if (btn.classList.contains('btn-del')) {
+    if (confirm(`删除词库「${name}」？`)) { deleteBank(name); }
+  }
+});
+
+// Flashcard
+document.getElementById('cardContainer').addEventListener('click', flipCard);
+document.getElementById('btnForgot').addEventListener('click', () => answerCard(false));
+document.getElementById('btnRemember').addEventListener('click', () => answerCard(true));
+
+// Quiz
+document.getElementById('quizOptions').addEventListener('click', e => {
+  const opt = e.target.closest('.quiz-option');
+  if (!opt || opt.classList.contains('disabled')) return;
+  handleQuizAnswer(opt);
+});
+
+// Session controls
+document.getElementById('btnStart').addEventListener('click', beginSession);
+document.getElementById('btnResume').addEventListener('click', resumeSession);
+document.getElementById('btnClearSaved').addEventListener('click', () => {
+  if (confirm('放弃已保存的进度？')) clearSavedSession();
+});
+document.getElementById('btnPause').addEventListener('click', pauseSession);
+document.getElementById('btnContinue').addEventListener('click', continueSession);
+document.getElementById('btnSaveQuit').addEventListener('click', saveAndQuit);
+document.getElementById('btnQuit').addEventListener('click', quitSession);
+document.getElementById('btnAgain').addEventListener('click', () => {
+  document.getElementById('learnResult').classList.remove('active');
+  beginSession();
+});
+document.getElementById('btnBackToSetup').addEventListener('click', () => {
+  document.getElementById('learnResult').classList.remove('active');
+  document.getElementById('learnSetup').style.display = 'block';
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (document.getElementById('pauseOverlay').classList.contains('active')) {
+    if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); continueSession(); }
+    return;
+  }
+  if (learnState && learnState.mode === 'quiz') {
+    if (!learnState.answered) {
+      const opts = document.querySelectorAll('.quiz-option:not(.disabled)');
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= opts.length) { opts[num - 1].click(); }
+    }
+    return;
+  }
+  if (learnState && !learnState.answered) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+  } else if (learnState && learnState.answered) {
+    if (e.key === '1' || e.key === 'f') answerCard(false);
+    if (e.key === '2' || e.key === 'j') answerCard(true);
+  }
+});
+
+// ============ Init ============
+renderBanks();
+populateBankSelect();
+checkSavedSession();
+renderHistory();
+updateStatsSummary();
+</script>
+</body>
+</html>

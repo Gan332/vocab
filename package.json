@@ -1,0 +1,11 @@
+{
+  "name": "vocab-app",
+  "version": "1.0.0",
+  "description": "本地背单词应用",
+  "main": "www/index.html",
+  "scripts": {
+    "build": "echo 'Build handled by GitHub Actions'"
+  },
+  "keywords": ["vocabulary", "learning"],
+  "license": "MIT"
+}
