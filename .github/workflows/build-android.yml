@@ -43,40 +43,39 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x VocabApp/gradlew
 
-      - name: Check environment
-        run: |
-          set +e
-          echo "## Environment" >> $GITHUB_STEP_SUMMARY
-          echo "PWD: $(pwd)" >> $GITHUB_STEP_SUMMARY
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_STEP_SUMMARY
-          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_STEP_SUMMARY
-          echo "---files---" >> $GITHUB_STEP_SUMMARY
-          ls -la VocabApp/ >> $GITHUB_STEP_SUMMARY
-          echo "---wrapper---" >> $GITHUB_STEP_SUMMARY
-          ls -la VocabApp/gradle/wrapper/ >> $GITHUB_STEP_SUMMARY
-          echo "---file---" >> $GITHUB_STEP_SUMMARY
-          file VocabApp/gradlew >> $GITHUB_STEP_SUMMARY
-          echo "---java---" >> $GITHUB_STEP_SUMMARY
-          java -version 2>&1 >> $GITHUB_STEP_SUMMARY
-          if [ -n "$ANDROID_HOME" ]; then
-            echo "---platforms---" >> $GITHUB_STEP_SUMMARY
-            ls -la "$ANDROID_HOME/platforms/" 2>&1 >> $GITHUB_STEP_SUMMARY || echo "no platforms" >> $GITHUB_STEP_SUMMARY
-            echo "---build-tools---" >> $GITHUB_STEP_SUMMARY
-            ls -la "$ANDROID_HOME/build-tools/" 2>&1 >> $GITHUB_STEP_SUMMARY || echo "no build-tools" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "ANDROID_HOME is not set" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "---gradle---" >> $GITHUB_STEP_SUMMARY
-          cd VocabApp && ./gradlew --version 2>&1 >> $GITHUB_STEP_SUMMARY || echo "gradlew --version failed with code $?" >> $GITHUB_STEP_SUMMARY
-          set -e
-
       - name: Build debug APK
         run: |
           cd VocabApp
+          set -o pipefail
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build-output.log
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+      - name: Find APK files
+        id: find-apk
+        run: |
+          echo "## APK search" >> $GITHUB_STEP_SUMMARY
+          echo "Looking for APKs..." >> $GITHUB_STEP_SUMMARY
+          find . -name "*.apk" -type f 2>/dev/null >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "Build output dir:" >> $GITHUB_STEP_SUMMARY
+          ls -laR VocabApp/app/build/outputs/ 2>&1 >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "Any .apk anywhere:" >> $GITHUB_STEP_SUMMARY
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APKs found"
+          if ls VocabApp/app/build/outputs/apk/debug/*.apk 1>/dev/null 2>&1; then
+            echo "Found APK at VocabApp/app/build/outputs/apk/debug/"
+            ls -la VocabApp/app/build/outputs/apk/debug/
+            echo "found=true" >> $GITHUB_OUTPUT
+          elif ls VocabApp/app/build/outputs/apk/*/*.apk 1>/dev/null 2>&1; then
+            echo "Found APK at VocabApp/app/build/outputs/apk/*/"
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "No APK found in standard location"
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload build log (always)
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
@@ -88,8 +87,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VocabApp-debug
-          path: VocabApp/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error
+          path: "VocabApp/app/build/outputs/apk/*/*.apk"
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Build summary
@@ -99,5 +98,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          APK_COUNT=$(find VocabApp/app/build/outputs/apk -name "*.apk" 2>/dev/null | wc -l)
-          echo "| APK files | ${APK_COUNT} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
