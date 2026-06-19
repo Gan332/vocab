@@ -1,4 +1,4 @@
-﻿name: Build VocabApp Android APK
+name: Build VocabApp Android APK
 
 on:
   push:
@@ -6,15 +6,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
 
 env:
   JAVA_VERSION: '17'
@@ -30,7 +21,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -52,32 +43,41 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x VocabApp/gradlew
 
-      - name: Build ${{ github.event.inputs.build_type || 'debug' }} APK
-        env:
-          BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      - name: Show workspace structure
+        run: |
+          echo "## Workspace structure" >> $GITHUB_STEP_SUMMARY
+          pwd
+          ls -la VocabApp/
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          ls -la VocabApp/gradle/wrapper/
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          file VocabApp/gradlew
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_STEP_SUMMARY
+          ls -la $ANDROID_HOME/platforms/ 2>&1 || echo "no platforms dir"
+          ls -la $ANDROID_HOME/build-tools/ 2>&1 || echo "no build-tools dir"
+          java -version 2>&1
+          cd VocabApp && ./gradlew --version 2>&1 || echo "Gradle wrapper failed"
+
+      - name: Build debug APK
         run: |
           cd VocabApp
-          if [ "$BUILD_TYPE" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
-            cat >> app/keystore.properties <<-EOF
-            storeFile=keystore.jks
-            storePassword=$STORE_PASSWORD
-            keyAlias=$KEY_ALIAS
-            keyPassword=$KEY_PASSWORD
-            EOF
-            ./gradlew assembleRelease --no-daemon --stacktrace
-          else
-            ./gradlew assembleDebug --no-daemon --stacktrace
-          fi
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build-output.log
+
+      - name: Upload build log (always)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-output.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VocabApp-${{ github.event.inputs.build_type || 'debug' }}
+          name: VocabApp-debug
           path: VocabApp/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 30
@@ -89,9 +89,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Branch | `${{ github.ref_name }}` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build type | `${{ github.event.inputs.build_type || 'debug' }}` |" >> $GITHUB_STEP_SUMMARY
           APK_COUNT=$(find VocabApp/app/build/outputs/apk -name "*.apk" 2>/dev/null | wc -l)
           echo "| APK files | ${APK_COUNT} |" >> $GITHUB_STEP_SUMMARY
