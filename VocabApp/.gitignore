@@ -1,0 +1,39 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+*.apk
+*.aab
+*.jks
+*.keystore
+signing.properties
+
+# Java / Kotlin
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Gradle Wrapper JAR (committed for CI builds)
+# gradle/wrapper/gradle-wrapper.jar
+
+# Misc
+*.log
+*.tmp
+/captures
+.externalNativeBuild/
+.cxx/
+*.hprof

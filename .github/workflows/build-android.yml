@@ -1,4 +1,4 @@
-name: Build Android APK
+﻿name: Build VocabApp Android APK
 
 on:
   push:
@@ -6,6 +6,19 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
   build:
@@ -14,48 +27,71 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: Set up Java
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: 17
-          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Set up Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Cordova
-        run: npm install -g cordova
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('VocabApp/**/*.gradle*', 'VocabApp/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: Create Cordova project
+      - name: Grant execute permission for gradlew
+        run: chmod +x VocabApp/gradlew
+
+      - name: Build ${{ github.event.inputs.build_type || 'debug' }} APK
+        env:
+          BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          cordova create temp-app com.vocab.app "背单词"
-          cd temp-app
-          cordova platform add android
+          cd VocabApp
+          if [ "$BUILD_TYPE" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
+            cat >> app/keystore.properties <<-EOF
+            storeFile=keystore.jks
+            storePassword=$STORE_PASSWORD
+            keyAlias=$KEY_ALIAS
+            keyPassword=$KEY_PASSWORD
+            EOF
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
 
-      - name: Copy app files
-        run: |
-          cp index.html temp-app/www/index.html
-          cp style.css temp-app/www/style.css
-          cp app.js temp-app/www/app.js
-          cp config.xml temp-app/
-
-      - name: Build debug APK
-        run: |
-          cd temp-app
-          cordova build android
-
-      - name: Rename APK
-        run: cp temp-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk vocab-app.apk
-
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vocab-app-apk
-          path: vocab-app.apk
+          name: VocabApp-${{ github.event.inputs.build_type || 'debug' }}
+          path: VocabApp/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "## Build complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | `${{ github.ref_name }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build type | `${{ github.event.inputs.build_type || 'debug' }}` |" >> $GITHUB_STEP_SUMMARY
+          APK_COUNT=$(find VocabApp/app/build/outputs/apk -name "*.apk" 2>/dev/null | wc -l)
+          echo "| APK files | ${APK_COUNT} |" >> $GITHUB_STEP_SUMMARY

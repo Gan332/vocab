@@ -1,71 +1,79 @@
-# ============================================================
-# 云端构建 APK — GitHub Actions
-# 每次推送到 main 分支或手动触发时，在云端自动构建 Android APK
-# ============================================================
-name: Build Android APK
+﻿name: Build VocabApp APK (manual only)
 
 on:
-  # 推送代码到 main 分支时自动构建
-  push:
-    branches: [ main ]
-
-  # 在 GitHub 页面可手动触发
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
   build:
-    name: 构建 APK
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 检出代码
-      - name: 检出代码
+      - name: Checkout
         uses: actions/checkout@v4
-
-      # 2. 设置 Node.js
-      - name: 设置 Node.js 20
-        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          fetch-depth: 1
 
-      # 3. 安装 npm 依赖
-      - name: 安装依赖
-        run: npm install
-
-      # 4. 添加 Android 平台（生成 android/ 目录）
-      - name: 添加 Capacitor Android 平台
-        run: npx cap add android
-
-      # 5. 同步 Web 资源到 Android 项目
-      - name: 同步 Web 资源
-        run: npx cap sync android
-
-      # 6. 复制 Web 资源（确保最新）
-      - name: 复制 Web 资源
-        run: npx cap copy android
-
-      # 7. 设置 Java 17（Gradle 需要）
-      - name: 设置 Java 17
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: 17
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      # 8. 设置 Android SDK
-      - name: 设置 Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 9. 构建 Debug APK
-      - name: 构建 APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('VocabApp/**/*.gradle*', 'VocabApp/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      # 10. 上传 APK 到构建产物
-      - name: 上传 APK
+      - name: Grant execute permission for gradlew
+        run: chmod +x VocabApp/gradlew
+
+      - name: Build ${{ github.event.inputs.build_type || 'debug' }} APK
+        env:
+          BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          cd VocabApp
+          if [ "$BUILD_TYPE" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
+            cat >> app/keystore.properties <<-EOF
+            storeFile=keystore.jks
+            storePassword=$STORE_PASSWORD
+            keyAlias=$KEY_ALIAS
+            keyPassword=$KEY_PASSWORD
+            EOF
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 背单词-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: VocabApp-${{ github.event.inputs.build_type || 'debug' }}
+          path: VocabApp/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
+          retention-days: 30

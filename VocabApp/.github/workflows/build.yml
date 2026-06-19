@@ -1,0 +1,210 @@
+name: 🏗️ 远端构建 Android APK
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'BUILD.md'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: '构建类型'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_MANAGER: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+  CMDLINE_TOOLS_VERSION: '11076708'
+
+jobs:
+  build:
+    name: 🔨 编译 APK (${{ github.event.inputs.build_type || 'debug' }})
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # 2. 设置 JDK 17
+      - name: ☕ 设置 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      # 3. 安装 Android SDK 命令行工具
+      - name: 🤖 安装 Android SDK
+        run: |
+          # 创建 SDK 目录
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd /tmp
+
+          # 下载 cmdline-tools
+          curl -fsSL -o cmdline-tools.zip \
+            "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip"
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+
+          # 接受许可证
+          yes | $ANDROID_SDK_MANAGER --licenses || true
+
+          # 安装必要组件
+          $ANDROID_SDK_MANAGER "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+          echo "✅ Android SDK 安装完成"
+
+      # 4. 安装 Gradle（安装到用户目录，避免权限问题）
+      - name: 🏗️ 安装 Gradle
+        run: |
+          cd /tmp
+          curl -fsSL -o gradle.zip \
+            "https://services.gradle.org/distributions/gradle-8.5-bin.zip"
+          unzip -q gradle.zip
+          mkdir -p $HOME/gradle
+          mv gradle-8.5/* $HOME/gradle/
+          echo "$HOME/gradle/bin" >> $GITHUB_PATH
+          echo "✅ Gradle 8.5 安装完成"
+
+      # 5. 验证环境
+      - name: 🔍 验证构建环境
+        run: |
+          echo "## 🔍 构建环境检查" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Java
+          echo "**Java:**" >> $GITHUB_STEP_SUMMARY
+          java -version 2>&1 || echo "Java not found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Gradle
+          echo "**Gradle:**" >> $GITHUB_STEP_SUMMARY
+          $HOME/gradle/bin/gradle --version || echo "Gradle not found at $HOME/gradle/bin/gradle" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Android SDK
+          echo "**Android SDK:**" >> $GITHUB_STEP_SUMMARY
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_STEP_SUMMARY
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_STEP_SUMMARY
+          ls -la $ANDROID_HOME/platforms/ 2>&1 || echo "No platforms directory" >> $GITHUB_STEP_SUMMARY
+          ls -la $ANDROID_HOME/build-tools/ 2>&1 || echo "No build-tools directory" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Gradle wrapper
+          echo "**Gradle Wrapper:**" >> $GITHUB_STEP_SUMMARY
+          ls -la gradle/wrapper/ 2>&1 || echo "No wrapper directory" >> $GITHUB_STEP_SUMMARY
+          
+          echo "✅ 环境检查完成" >> $GITHUB_STEP_SUMMARY
+
+      # 6. 添加 Gradle 缓存
+      - name: 💾 缓存 Gradle 依赖
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 7. 编译 debug APK（通过 tee 同时输出到终端和文件）
+      - name: 🛠️ 编译 ${{ github.event.inputs.build_type || 'debug' }} APK
+        env:
+          BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          # Release 签名配置
+          if [ "$BUILD_TYPE" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
+            echo "storeFile=keystore.jks" >> app/keystore.properties
+            echo "storePassword=$STORE_PASSWORD" >> app/keystore.properties
+            echo "keyAlias=$KEY_ALIAS" >> app/keystore.properties
+            echo "keyPassword=$KEY_PASSWORD" >> app/keystore.properties
+            echo "✅ 签名密钥已配置"
+          fi
+
+          # 执行构建，同时输出到终端和日志文件
+          set -o pipefail
+          $HOME/gradle/bin/gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle_output.log
+
+      # 8. 📄 上传构建日志（无论成功失败）
+      - name: 📄 上传构建日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.sha }}
+          path: gradle_output.log
+          retention-days: 7
+          compression-level: 9
+
+      # 9. 上传 APK 产物
+      - name: 📦 上传 APK 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: VocabApp-${{ github.event.inputs.build_type || 'debug' }}-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 0
+
+      # 10. 构建摘要
+      - name: 📊 构建摘要
+        if: success()
+        run: |
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'debug' }}"
+          echo "## ✅ 远端构建完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| 提交 | [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 分支 | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 触发者 | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 构建类型 | \`${BUILD_TYPE}\` |" >> $GITHUB_STEP_SUMMARY
+          APK_COUNT=$(find app/build/outputs/apk -name "*.apk" 2>/dev/null | wc -l)
+          echo "| APK 文件数 | ${APK_COUNT} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📎 下载 APK" >> $GITHUB_STEP_SUMMARY
+          echo "在该页面顶部的 **Artifacts** 区域下载 APK 文件，传输到 Android 设备即可安装。" >> $GITHUB_STEP_SUMMARY
+
+      # 11. 构建失败诊断
+      - name: 🔍 构建失败诊断
+        if: failure()
+        run: |
+          echo "## ❌ 构建失败" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f gradle_output.log ]; then
+            echo "### Gradle 输出（最后 50 行）" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 gradle_output.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            
+            # 提取 ERROR 行
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 编译错误" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -n "error:" gradle_output.log | head -30 >> $GITHUB_STEP_SUMMARY || echo "（未找到 error: 关键字）" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "未找到 gradle_output.log" >> $GITHUB_STEP_SUMMARY
+          fi
