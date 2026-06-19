@@ -41,6 +41,8 @@ jobs:
       - name: Copy app files
         run: |
           cp index.html temp-app/www/index.html
+          cp style.css temp-app/www/style.css
+          cp app.js temp-app/www/app.js
           cp config.xml temp-app/
 
       - name: Build debug APK

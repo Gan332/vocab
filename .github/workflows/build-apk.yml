@@ -1,0 +1,71 @@
+# ============================================================
+# 云端构建 APK — GitHub Actions
+# 每次推送到 main 分支或手动触发时，在云端自动构建 Android APK
+# ============================================================
+name: Build Android APK
+
+on:
+  # 推送代码到 main 分支时自动构建
+  push:
+    branches: [ main ]
+
+  # 在 GitHub 页面可手动触发
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建 APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 2. 设置 Node.js
+      - name: 设置 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 3. 安装 npm 依赖
+      - name: 安装依赖
+        run: npm install
+
+      # 4. 添加 Android 平台（生成 android/ 目录）
+      - name: 添加 Capacitor Android 平台
+        run: npx cap add android
+
+      # 5. 同步 Web 资源到 Android 项目
+      - name: 同步 Web 资源
+        run: npx cap sync android
+
+      # 6. 复制 Web 资源（确保最新）
+      - name: 复制 Web 资源
+        run: npx cap copy android
+
+      # 7. 设置 Java 17（Gradle 需要）
+      - name: 设置 Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+
+      # 8. 设置 Android SDK
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 9. 构建 Debug APK
+      - name: 构建 APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      # 10. 上传 APK 到构建产物
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 背单词-APK
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
