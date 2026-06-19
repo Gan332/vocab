@@ -46,40 +46,14 @@ jobs:
       - name: Build debug APK
         run: |
           cd VocabApp
-          set -o pipefail
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build-output.log
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
-
-      - name: Find APK files
-        id: find-apk
-        run: |
-          echo "## APK search" >> $GITHUB_STEP_SUMMARY
-          echo "Looking for APKs..." >> $GITHUB_STEP_SUMMARY
-          find . -name "*.apk" -type f 2>/dev/null >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "Build output dir:" >> $GITHUB_STEP_SUMMARY
-          ls -laR VocabApp/app/build/outputs/ 2>&1 >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "Any .apk anywhere:" >> $GITHUB_STEP_SUMMARY
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APKs found"
-          if ls VocabApp/app/build/outputs/apk/debug/*.apk 1>/dev/null 2>&1; then
-            echo "Found APK at VocabApp/app/build/outputs/apk/debug/"
-            ls -la VocabApp/app/build/outputs/apk/debug/
-            echo "found=true" >> $GITHUB_OUTPUT
-          elif ls VocabApp/app/build/outputs/apk/*/*.apk 1>/dev/null 2>&1; then
-            echo "Found APK at VocabApp/app/build/outputs/apk/*/"
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "No APK found in standard location"
-            echo "found=false" >> $GITHUB_OUTPUT
-          fi
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload build log (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: build-output.log
+          path: VocabApp/app/build/reports/*.txt
           if-no-files-found: warn
           retention-days: 7
 
@@ -90,13 +64,3 @@ jobs:
           path: "VocabApp/app/build/outputs/apk/*/*.apk"
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Build summary
-        if: success()
-        run: |
-          echo "## Build complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
