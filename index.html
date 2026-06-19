@@ -28,6 +28,7 @@ if ('serviceWorker' in navigator) {
   <div class="page active" id="page-banks">
     <div class="bank-header">
       <h2>我的词库</h2>
+      <button class="btn-market" id="btnMarket" title="词库市场">📥 获取词库</button>
     </div>
     <div class="search-area">
       <input type="text" class="search-input" id="bankSearch" placeholder="🔍 搜索词库或单词..." autocomplete="off">
@@ -50,6 +51,38 @@ if ('serviceWorker' in navigator) {
           <span class="word-count" id="wordCount">0 词</span>
         </div>
         <div class="word-list-body" id="wordListBody"></div>
+      </div>
+    </div>
+
+    <!-- 词库市场 -->
+    <div class="market-overlay" id="marketOverlay">
+      <div class="market-panel">
+        <div class="market-header">
+          <h3>📥 词库市场</h3>
+          <button class="market-close" id="marketClose">&times;</button>
+        </div>
+        <div class="market-tabs">
+          <button class="market-tab active" data-tab="builtin">内置词库</button>
+          <button class="market-tab" data-tab="url-import">从 URL 导入</button>
+        </div>
+
+        <!-- 内置词库 -->
+        <div class="market-content active" id="marketBuiltin">
+          <div class="market-builtin-list" id="marketBuiltinList"></div>
+        </div>
+
+        <!-- URL 导入 -->
+        <div class="market-content" id="marketUrlImport">
+          <div class="url-import-area">
+            <p class="url-import-desc">输入 TXT 词库文件的直链 URL，文件格式与本地导入相同：</p>
+            <div class="url-format-hint">每行格式: 单词 - 释义 或 单词\t释义 或 单词|释义</div>
+            <div class="url-input-group">
+              <input type="url" class="url-input" id="urlInput" placeholder="https://example.com/words.txt" autocomplete="off" spellcheck="false">
+              <button class="btn-url-import" id="btnUrlImport">下载导入</button>
+            </div>
+            <div class="url-status" id="urlStatus"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -236,6 +269,7 @@ if ('serviceWorker' in navigator) {
     </button>
   </nav>
 </div>
+<script src="banks-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

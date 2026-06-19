@@ -5,6 +5,8 @@ const dom = {};
   'statSessions', 'statAvgAcc', 'statTotalTime',
   'dropZone', 'fileInput',
   'bankSearch', 'wordListOverlay', 'wordListTitle', 'wordListSearch', 'wordListBody', 'wordListClose', 'wordCount',
+  'btnMarket', 'marketOverlay', 'marketClose', 'marketBuiltinList', 'marketBuiltin',
+  'marketUrlImport', 'urlInput', 'btnUrlImport', 'urlStatus',
   'learnSetup', 'learnSession', 'learnResult',
   'resumeBanner', 'btnResume', 'btnClearSaved',
   'btnStart', 'btnPause', 'btnQuit',
@@ -1295,6 +1297,120 @@ dom.wordListSearch.addEventListener('input', e => {
   const bankName = dom.wordListTitle.textContent;
   const bank = getBank(bankName);
   if (bank) renderWordList(bank.cards, e.target.value);
+});
+
+// ============ 词库市场 ============
+function renderMarketBuiltin() {
+  if (!dom.marketBuiltinList) return;
+  dom.marketBuiltinList.innerHTML = BUILT_IN_BANKS.map(b => `
+    <div class="market-item" data-bank="${escAttr(b.name)}">
+      <div class="market-item-icon">${b.icon}</div>
+      <div class="market-item-info">
+        <div class="market-item-name">${escHtml(b.name)}</div>
+        <div class="market-item-desc">${escHtml(b.desc)}</div>
+        <div class="market-item-size">${b.size}</div>
+      </div>
+      <div class="market-item-action">
+        <button class="btn-market-download" data-name="${escAttr(b.name)}">导入</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function importBuiltinBank(name) {
+  const bank = BUILT_IN_BANKS.find(b => b.name === name);
+  if (!bank) return;
+  const existing = DB.getBanks().find(b => b.name === name);
+  if (existing) {
+    if (!confirm(`「${name}」已存在，是否覆盖？`)) return;
+  }
+  importBank(name, bank.cards);
+  alert(`✅ 成功导入「${name}」(${bank.cards.length} 个单词)`);
+  populateBankSelect();
+}
+
+function downloadUrlBank(url) {
+  const statusEl = dom.urlStatus;
+  statusEl.className = 'url-status';
+  statusEl.textContent = '⏳ 正在下载...';
+
+  return fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return res.text();
+    })
+    .then(text => {
+      const cards = parseTxt(text);
+      if (!cards.length) throw new Error('未解析到有效词条，请检查文件格式');
+      const name = url.split('/').pop().replace(/\.txt$/i, '') || '下载词库';
+      const existing = DB.getBanks().find(b => b.name === name);
+      if (existing) {
+        if (!confirm(`「${name}」已存在，是否覆盖？`)) return;
+      }
+      importBank(name, cards);
+      statusEl.className = 'url-status success';
+      statusEl.textContent = `✅ 成功导入「${name}」(${cards.length} 个单词)`;
+      populateBankSelect();
+    })
+    .catch(err => {
+      statusEl.className = 'url-status error';
+      statusEl.textContent = '❌ ' + err.message;
+      throw err;
+    });
+}
+
+// 词库市场 - 按钮
+dom.btnMarket.addEventListener('click', () => {
+  renderMarketBuiltin();
+  dom.marketOverlay.classList.add('active');
+});
+
+// 词库市场 - 关闭
+dom.marketClose.addEventListener('click', () => {
+  dom.marketOverlay.classList.remove('active');
+  dom.urlStatus.className = 'url-status';
+  dom.urlStatus.textContent = '';
+});
+dom.marketOverlay.addEventListener('click', e => {
+  if (e.target === dom.marketOverlay) {
+    dom.marketOverlay.classList.remove('active');
+    dom.urlStatus.className = 'url-status';
+    dom.urlStatus.textContent = '';
+  }
+});
+
+// 词库市场 - Tab 切换
+document.querySelectorAll('.market-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.market-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.market-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    const content = document.getElementById('market' + tab.dataset.tab.replace(/^./, c => c.toUpperCase()).replace(/-./g, s => s[1].toUpperCase()));
+    if (content) content.classList.add('active');
+  });
+});
+
+// 词库市场 - 内置词库导入（委托）
+dom.marketBuiltinList.addEventListener('click', e => {
+  const btn = e.target.closest('.btn-market-download');
+  if (!btn) return;
+  const name = btn.dataset.name;
+  importBuiltinBank(name);
+});
+
+// 词库市场 - URL 导入
+dom.btnUrlImport.addEventListener('click', () => {
+  const url = dom.urlInput.value.trim();
+  if (!url) { dom.urlStatus.textContent = '请输入 URL'; return; }
+  dom.urlInput.disabled = true;
+  dom.btnUrlImport.disabled = true;
+  downloadUrlBank(url).catch(() => {}).finally(() => {
+    dom.urlInput.disabled = false;
+    dom.btnUrlImport.disabled = false;
+  });
+});
+dom.urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') dom.btnUrlImport.click();
 });
 
 // Import file

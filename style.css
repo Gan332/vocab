@@ -637,6 +637,272 @@ header {
 }
 
 /* ============================================
+   词库市场 — Bank Market
+   ============================================ */
+
+.btn-market {
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--r-xs);
+  background: var(--ink);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.12s var(--ease);
+  white-space: nowrap;
+}
+.btn-market:active { transform: scale(0.95); opacity: 0.85; }
+
+/* Overlay */
+.market-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 200;
+  justify-content: center;
+  align-items: flex-end;
+}
+.market-overlay.active {
+  display: flex;
+  animation: fadeIn 0.2s var(--ease);
+}
+
+.market-panel {
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  width: 100%;
+  max-width: 428px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+  animation: slideUp 0.35s var(--ease-out);
+  margin: 0 auto;
+}
+
+/* Drag indicator */
+.market-panel::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  background: var(--ink-200);
+  border-radius: var(--r-full);
+  margin: 8px auto 0;
+  flex-shrink: 0;
+}
+
+.market-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 0.5px solid var(--separator);
+  flex-shrink: 0;
+}
+.market-header h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+.market-close {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  border: none;
+  background: var(--ink-100);
+  color: var(--ink-500);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.12s var(--ease);
+}
+.market-close:active {
+  transform: scale(0.9);
+  background: var(--ink-200);
+}
+
+/* Tabs */
+.market-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 0.5px solid var(--separator);
+  flex-shrink: 0;
+  padding: 0 20px;
+}
+.market-tab {
+  flex: 1;
+  padding: 12px 8px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--ink-400);
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -0.5px;
+}
+.market-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+.market-tab:active { opacity: 0.7; }
+
+.market-content {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.market-content.active { display: block; }
+
+/* Built-in Bank List */
+.market-builtin-list {
+  padding: 12px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.market-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--ink-100);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  transition: transform 0.12s var(--ease);
+}
+.market-item:active { transform: scale(0.99); }
+
+.market-item-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.market-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.market-item-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-900);
+  margin-bottom: 2px;
+}
+.market-item-desc {
+  font-size: 12px;
+  color: var(--ink-400);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+.market-item-size {
+  font-size: 11px;
+  color: var(--ink-300);
+  font-weight: 500;
+}
+
+.market-item-action {
+  flex-shrink: 0;
+}
+.btn-market-download {
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--r-xs);
+  background: var(--ink);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.12s var(--ease);
+  white-space: nowrap;
+}
+.btn-market-download:active { transform: scale(0.95); opacity: 0.85; }
+
+/* URL Import */
+.url-import-area {
+  padding: 20px;
+}
+.url-import-desc {
+  font-size: 14px;
+  color: var(--ink-500);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.url-format-hint {
+  font-size: 12px;
+  color: var(--ink-300);
+  margin-bottom: 16px;
+}
+.url-input-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.url-input {
+  flex: 1;
+  height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--ink-200);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-family: var(--font-body);
+  background: var(--surface);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s var(--ease);
+}
+.url-input:focus {
+  border-color: var(--ink);
+}
+.url-input::placeholder { color: var(--ink-300); }
+.url-input:disabled { opacity: 0.5; }
+
+.btn-url-import {
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.12s var(--ease);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-url-import:active { transform: scale(0.95); opacity: 0.85; }
+.btn-url-import:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.url-status {
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 20px;
+}
+.url-status.success { color: var(--jade); }
+.url-status.error { color: var(--vermillion); }
+
+/* ============================================
    Learn Page — Setup
    ============================================ */
 
