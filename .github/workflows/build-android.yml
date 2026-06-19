@@ -43,26 +43,36 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x VocabApp/gradlew
 
-      - name: Show workspace structure
+      - name: Check environment
         run: |
-          echo "## Workspace structure" >> $GITHUB_STEP_SUMMARY
-          pwd
-          ls -la VocabApp/
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          ls -la VocabApp/gradle/wrapper/
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          file VocabApp/gradlew
-          echo "---" >> $GITHUB_STEP_SUMMARY
+          set +e
+          echo "## Environment" >> $GITHUB_STEP_SUMMARY
+          echo "PWD: $(pwd)" >> $GITHUB_STEP_SUMMARY
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_STEP_SUMMARY
-          ls -la $ANDROID_HOME/platforms/ 2>&1 || echo "no platforms dir"
-          ls -la $ANDROID_HOME/build-tools/ 2>&1 || echo "no build-tools dir"
-          java -version 2>&1
-          cd VocabApp && ./gradlew --version 2>&1 || echo "Gradle wrapper failed"
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_STEP_SUMMARY
+          echo "---files---" >> $GITHUB_STEP_SUMMARY
+          ls -la VocabApp/ >> $GITHUB_STEP_SUMMARY
+          echo "---wrapper---" >> $GITHUB_STEP_SUMMARY
+          ls -la VocabApp/gradle/wrapper/ >> $GITHUB_STEP_SUMMARY
+          echo "---file---" >> $GITHUB_STEP_SUMMARY
+          file VocabApp/gradlew >> $GITHUB_STEP_SUMMARY
+          echo "---java---" >> $GITHUB_STEP_SUMMARY
+          java -version 2>&1 >> $GITHUB_STEP_SUMMARY
+          if [ -n "$ANDROID_HOME" ]; then
+            echo "---platforms---" >> $GITHUB_STEP_SUMMARY
+            ls -la "$ANDROID_HOME/platforms/" 2>&1 >> $GITHUB_STEP_SUMMARY || echo "no platforms" >> $GITHUB_STEP_SUMMARY
+            echo "---build-tools---" >> $GITHUB_STEP_SUMMARY
+            ls -la "$ANDROID_HOME/build-tools/" 2>&1 >> $GITHUB_STEP_SUMMARY || echo "no build-tools" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ANDROID_HOME is not set" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "---gradle---" >> $GITHUB_STEP_SUMMARY
+          cd VocabApp && ./gradlew --version 2>&1 >> $GITHUB_STEP_SUMMARY || echo "gradlew --version failed with code $?" >> $GITHUB_STEP_SUMMARY
+          set -e
 
       - name: Build debug APK
         run: |
           cd VocabApp
-          set -o pipefail
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build-output.log
 
       - name: Upload build log (always)
