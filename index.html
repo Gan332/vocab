@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="背单词">
-<script>
+<script defer>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
@@ -269,7 +269,7 @@ if ('serviceWorker' in navigator) {
     </button>
   </nav>
 </div>
-<script src="banks-data.js"></script>
-<script src="app.js"></script>
+<script defer src="banks-data.js"></script>
+<script defer src="app.js"></script>
 </body>
 </html>

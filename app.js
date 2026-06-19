@@ -1302,6 +1302,18 @@ dom.wordListSearch.addEventListener('input', e => {
 // ============ 词库市场 ============
 function renderMarketBuiltin() {
   if (!dom.marketBuiltinList) return;
+  if (!window.BUILT_IN_BANKS || !BUILT_IN_BANKS.length) {
+    dom.marketBuiltinList.innerHTML = '<div class="market-loading">⏳ 加载词库数据中...</div>';
+    // Retry once after a short delay
+    setTimeout(() => {
+      if (window.BUILT_IN_BANKS && BUILT_IN_BANKS.length) {
+        renderMarketBuiltin();
+      } else {
+        dom.marketBuiltinList.innerHTML = '<div class="market-loading" style="padding:40px;text-align:center;color:var(--ink-300);">❌ 词库数据加载失败，请刷新页面重试</div>';
+      }
+    }, 500);
+    return;
+  }
   dom.marketBuiltinList.innerHTML = BUILT_IN_BANKS.map(b => `
     <div class="market-item" data-bank="${escAttr(b.name)}">
       <div class="market-item-icon">${b.icon}</div>
@@ -1611,10 +1623,19 @@ document.addEventListener('keydown', e => {
 });
 
 // ============ Init ============
-applyTheme(DB.getTheme());
-updateGoalUI();
-renderBanks();
-populateBankSelect();
-checkSavedSession();
-renderHistory();
-updateStatsSummary();
+function initApp() {
+  applyTheme(DB.getTheme());
+  updateGoalUI();
+  renderBanks();
+  populateBankSelect();
+  checkSavedSession();
+  renderHistory();
+  updateStatsSummary();
+}
+
+// Use DOMContentLoaded to ensure DOM is ready, especially on mobile PWA
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

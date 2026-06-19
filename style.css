@@ -133,6 +133,17 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Mobile: eliminate tap delay and improve touch responsiveness */
+html {
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+}
+
+button, a, .bank-card, .import-area, .quiz-option, .market-item, .word-list-item, .tab-bar-item, .history-item {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
@@ -837,6 +848,13 @@ header {
   white-space: nowrap;
 }
 .btn-market-download:active { transform: scale(0.95); opacity: 0.85; }
+
+.market-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ink-300);
+  font-size: 14px;
+}
 
 /* URL Import */
 .url-import-area {
