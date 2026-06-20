@@ -117,12 +117,10 @@ jobs:
           cd VocabApp
           if [ "$BUILD_TYPE" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
-            cat > app/keystore.properties <<-EOF
-            storeFile=keystore.jks
-            storePassword=$STORE_PASSWORD
-            keyAlias=$KEY_ALIAS
-            keyPassword=$KEY_PASSWORD
-            EOF
+            echo "storeFile=keystore.jks" > app/keystore.properties
+            echo "storePassword=$STORE_PASSWORD" >> app/keystore.properties
+            echo "keyAlias=$KEY_ALIAS" >> app/keystore.properties
+            echo "keyPassword=$KEY_PASSWORD" >> app/keystore.properties
             echo "gradle_task=assembleRelease" >> "$GITHUB_OUTPUT"
           else
             if [ "$BUILD_TYPE" = "release" ]; then
