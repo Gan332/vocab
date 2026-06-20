@@ -35,6 +35,19 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER=""
+          for p in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager"; do
+            if [ -x "$p" ]; then SDKMANAGER="$p"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found, skipping"
+          else
+            echo "Using: $SDKMANAGER"
+            yes | "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -10
+          fi
+
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
         with:
