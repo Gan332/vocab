@@ -1,0 +1,141 @@
+# =============================================================================
+# Build VocabApp APK
+# - 自动构建: push/PR 到 main 分支时构建 debug APK
+# - 手动构建: workflow_dispatch 选择 debug/release
+# =============================================================================
+
+name: Build VocabApp APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+  SDK_API_LEVEL: '34'
+  SDK_BUILD_TOOLS: '34.0.0'
+
+jobs:
+  build:
+    name: Build ${{ inputs.build_type || 'debug' }} APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ===== 检出代码 =====
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ===== 环境准备 =====
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install required SDK components
+        run: |
+          SDKMANAGER=""
+          for p in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+                    "$ANDROID_HOME/tools/bin/sdkmanager"; do
+            if [ -x "$p" ]; then SDKMANAGER="$p"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::warning::sdkmanager not found, relying on pre-installed SDK"
+          else
+            echo "Using: $SDKMANAGER"
+            yes | "$SDKMANAGER" --install \
+              "platforms;android-${{ env.SDK_API_LEVEL }}" \
+              "build-tools;${{ env.SDK_BUILD_TOOLS }}" \
+              2>&1 | tail -5
+          fi
+
+      # ===== 权限 =====
+      - name: Grant execute permission for gradlew
+        run: chmod +x VocabApp/gradlew
+
+      # ===== 缓存 Gradle 依赖 =====
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('VocabApp/**/*.gradle*', 'VocabApp/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ===== 版本号（用于手动构建时覆盖） =====
+      - name: Generate version info
+        id: version
+        run: |
+          echo "version_code=$(date +%Y%m%d%H%M)" >> $GITHUB_OUTPUT
+          echo "version_name=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      # ===== 构建 APK =====
+      - name: Build APK
+        id: build
+        env:
+          BUILD_TYPE: ${{ inputs.build_type || 'debug' }}
+          # Release signing (only used when secrets are configured)
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          cd VocabApp
+
+          if [ "${{ env.BUILD_TYPE }}" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
+            # Prepare release signing
+            echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
+            cat > app/keystore.properties <<-EOF
+            storeFile=keystore.jks
+            storePassword=$STORE_PASSWORD
+            keyAlias=$KEY_ALIAS
+            keyPassword=$KEY_PASSWORD
+            EOF
+            GRADLE_TASK="assembleRelease"
+          else
+            GRADLE_TASK="assembleDebug"
+          fi
+
+          echo "Running: ./gradlew $GRADLE_TASK"
+          ./gradlew $GRADLE_TASK --no-daemon --stacktrace 2>&1 | tee ../build-output.log
+          exit ${PIPESTATUS[0]}
+
+      # ===== 上传构建产物 =====
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VocabApp-${{ inputs.build_type || 'debug' }}
+          path: VocabApp/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # ===== 上传构建日志（失败时辅助排查） =====
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ inputs.build_type || 'debug' }}
+          path: build-output.log
+          if-no-files-found: warn
+          retention-days: 7
