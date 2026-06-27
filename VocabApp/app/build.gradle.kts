@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,7 +8,7 @@ plugins {
 
 // ========== 签名配置（远端构建用 keystore.properties） ==========
 val keystorePropertiesFile = rootProject.file("app/keystore.properties")
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
     println("✅ 已加载签名配置: ${keystorePropertiesFile.absolutePath}")
