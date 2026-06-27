@@ -13,6 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vocabapp.data.model.BuiltInBank
+import com.vocabapp.ui.theme.*
+import com.vocabapp.ui.learn.IosCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,7 +28,7 @@ fun MarketSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
     ) {
         Column(
             modifier = Modifier
@@ -41,53 +43,69 @@ fun MarketSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "📥 词库市场",
-                    style = MaterialTheme.typography.headlineMedium
-                )
+                Text("词库市场", style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = onDismiss) {
                     Text("✕", fontSize = 18.sp)
                 }
             }
 
-            // Tabs
-            TabRow(
-                selectedTabIndex = if (activeTab == "builtin") 0 else 1
-            ) {
-                Tab(
-                    selected = activeTab == "builtin",
-                    onClick = { onTabChange("builtin") },
-                    text = { Text("内置词库") }
-                )
-                Tab(
-                    selected = activeTab == "url",
-                    onClick = { onTabChange("url") },
-                    text = { Text("从 URL 导入") }
-                )
-            }
+            // Segmented tabs
+            IosSegmentedTabs(activeTab, onTabChange)
+
+            Spacer(Modifier.height(8.dp))
 
             when (activeTab) {
                 "builtin" -> {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(builtInBanks) { bank ->
-                            BuiltInBankItem(
-                                bank = bank,
-                                onImport = { onImportBuiltIn(bank) }
-                            )
+                            BuiltInBankItem(bank, onImport = { onImportBuiltIn(bank) })
                         }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
                 }
                 "url" -> {
-                    UrlImportTab(
-                        onImport = onImportUrl
-                    )
+                    UrlImportTab(onImport = onImportUrl)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun IosSegmentedTabs(activeTab: String, onTabChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(8.dp)
+            )
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        listOf("builtin" to "内置词库", "url" to "从 URL 导入").forEach { (value, label) ->
+            val isSelected = activeTab == value
+            Text(
+                label,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.surface
+                        else androidx.compose.ui.graphics.Color.Transparent,
+                        RoundedCornerShape(7.dp)
+                    )
+                    .clickable { onTabChange(value) }
+                    .padding(vertical = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -97,42 +115,22 @@ private fun BuiltInBankItem(
     bank: BuiltInBank,
     onImport: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
+    IosCard {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(bank.icon, fontSize = 28.sp, modifier = Modifier.padding(end = 12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    bank.name,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    bank.desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    bank.size,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
+            Column(Modifier.weight(1f)) {
+                Text(bank.name, style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold)
+                Text(bank.desc, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(bank.size, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline)
             }
-            Button(
-                onClick = onImport,
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Text("导入", fontSize = 13.sp)
+            TextButton(onClick = onImport) {
+                Text("导入", color = iosBlue, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -147,23 +145,16 @@ private fun UrlImportTab(
     var isLoading by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp)
+        modifier = Modifier.fillMaxWidth().padding(20.dp)
     ) {
-        Text(
-            "输入 TXT 词库文件的直链 URL",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            "每行格式: 单词 - 释义 或 单词\\t释义 或 单词|释义",
+        Text("输入 TXT 词库文件的直链 URL", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("每行: 单词 - 释义 / 单词\\t释义 / 单词|释义",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(vertical = 4.dp)
-        )
+            modifier = Modifier.padding(vertical = 4.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -176,38 +167,36 @@ private fun UrlImportTab(
                 placeholder = { Text("https://example.com/words.txt") },
                 singleLine = true,
                 shape = RoundedCornerShape(10.dp),
-                enabled = !isLoading
+                enabled = !isLoading,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface
+                )
             )
             Button(
                 onClick = {
                     if (url.isNotBlank()) {
                         isLoading = true
                         status = "⏳ 正在下载..."
-                        // In a real app, you'd use a coroutine to fetch the URL
-                        // For now, simulate with a message
-                        status = "⚠️ URL导入需要网络请求权限，请在实际设备上测试"
+                        status = "⚠️ URL导入需要网络请求权限"
                         isLoading = false
                     }
                 },
                 shape = RoundedCornerShape(10.dp),
                 enabled = !isLoading
-            ) {
-                Text("下载导入")
-            }
+            ) { Text("下载导入") }
         }
 
         if (status.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
             val statusColor = when {
                 status.startsWith("✅") -> MaterialTheme.colorScheme.tertiary
                 status.startsWith("❌") -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             }
-            Text(
-                status,
-                style = MaterialTheme.typography.bodyMedium,
-                color = statusColor
-            )
+            Text(status, style = MaterialTheme.typography.bodyMedium, color = statusColor)
         }
     }
 }

@@ -2,40 +2,48 @@ package com.vocabapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light theme
-val ink = Color(0xFF1E3A5F)
-val inkLight = Color(0xFF2B5278)
-val vermillion = Color(0xFFC53030)
-val vermillionLight = Color(0x1AC53030)
-val jade = Color(0xFF276749)
-val jadeLight = Color(0x1A276749)
-val amber = Color(0xFFB7791F)
-val amberLight = Color(0x1AB7791F)
+// iOS System Colors
+val iosBlue = Color(0xFF007AFF)
+val iosBlueLight = Color(0x1A007AFF)
+val iosRed = Color(0xFFFF3B30)
+val iosRedLight = Color(0x1AFF3B30)
+val iosGreen = Color(0xFF34C759)
+val iosGreenLight = Color(0x1A34C759)
+val iosOrange = Color(0xFFFF9500)
+val iosOrangeLight = Color(0x1AFF9500)
 
-val paper = Color(0xFFF7F5F0)
-val surface = Color(0xFFFFFFFF)
-val surfaceRaised = Color(0xFFFFFFFF)
+// Backgrounds
+val iosGroupedBackground = Color(0xFFF2F2F7)
+val iosSecondaryGroupedBg = Color(0xFFFFFFFF)
+val iosTertiaryGroupedBg = Color(0xFFF2F2F7)
 
-val ink900 = Color(0xFF1A202C)
-val ink700 = Color(0xFF2D3748)
-val ink500 = Color(0xFF4A5568)
-val ink400 = Color(0xFF718096)
-val ink300 = Color(0xFFA0AEC0)
-val ink200 = Color(0xFFCBD5E0)
-val ink100 = Color(0xFFEDF2F7)
+// Labels
+val iosLabel = Color(0xFF000000)
+val iosSecondaryLabel = Color(0xFF3C3C43).copy(alpha = 0.6f)
+val iosTertiaryLabel = Color(0xFF3C3C43).copy(alpha = 0.3f)
 
-// Dark theme
-val darkPaper = Color(0xFF0F1114)
-val darkSurface = Color(0xFF1A1D23)
-val darkSurfaceRaised = Color(0xFF22262E)
-val darkInk900 = Color(0xFFF1F5F9)
-val darkInk700 = Color(0xFFCBD5E0)
-val darkInk500 = Color(0xFFA0AEC0)
-val darkInk400 = Color(0xFF718096)
-val darkInk300 = Color(0xFF4A5568)
-val darkInk200 = Color(0xFF2D3748)
-val darkInk100 = Color(0xFF1A202C)
+// Separators
+val iosSeparator = Color(0xFFC6C6C8)
+val iosOpaqueSeparator = Color(0xFFC8C8CC)
 
-val darkVermillion = Color(0xFFFC8181)
-val darkJade = Color(0xFF68D391)
-val darkAmber = Color(0xFFF6E05E)
+// Fills
+val iosSystemFill = Color(0xFF787880).copy(alpha = 0.2f)
+val iosSecondaryFill = Color(0xFF787880).copy(alpha = 0.16f)
+val iosTertiaryFill = Color(0xFF767680).copy(alpha = 0.12f)
+
+// Surface Variant (for segmented controls, chips, etc.)
+val iosSystemGray5 = Color(0xFFE8E8ED)
+
+// Dark mode
+val darkIosGroupedBackground = Color(0xFF000000)
+val darkIosSecondaryGroupedBg = Color(0xFF1C1C1E)
+val darkIosTertiaryGroupedBg = Color(0xFF2C2C2E)
+val darkIosLabel = Color(0xFFFFFFFF)
+val darkIosSecondaryLabel = Color(0xFFEBEBF5).copy(alpha = 0.6f)
+val darkIosTertiaryLabel = Color(0xFFEBEBF5).copy(alpha = 0.3f)
+val darkIosSeparator = Color(0xFF38383A)
+val darkIosOpaqueSeparator = Color(0xFF38383A)
+val darkIosSystemFill = Color(0xFF787880).copy(alpha = 0.36f)
+val darkIosSecondaryFill = Color(0xFF787880).copy(alpha = 0.32f)
+val darkIosTertiaryFill = Color(0xFF767680).copy(alpha = 0.24f)
+val darkIosSystemGray5 = Color(0xFF2C2C2E)

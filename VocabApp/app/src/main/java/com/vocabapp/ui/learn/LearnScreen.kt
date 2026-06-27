@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -28,9 +29,16 @@ import com.vocabapp.util.TimeUtils
 
 @Composable
 fun LearnScreen(
+    initialBankName: String = "",
     viewModel: LearnViewModel = viewModel(factory = LearnViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(initialBankName) {
+        if (initialBankName.isNotBlank()) {
+            viewModel.updateSelectedBank(initialBankName)
+        }
+    }
 
     if (uiState.showSetup) {
         LearnSetupView(viewModel, uiState)
@@ -40,7 +48,6 @@ fun LearnScreen(
         LearnSessionView(viewModel, uiState)
     }
 
-    // Pause overlay
     if (uiState.showPause) {
         PauseOverlay(viewModel)
     }
@@ -55,147 +62,125 @@ private fun LearnSetupView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        Text(
+            "学习",
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 8.dp)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                Text(
-                    "选择词库开始学习",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(bottom = 20.dp)
-                )
-
-                // Bank select
-                BankSelector(
-                    selectedBank = uiState.selectedBank,
-                    onBankSelected = { viewModel.updateSelectedBank(it) }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Direction
-                DirectionSelector(
-                    selected = uiState.selectedDirection,
-                    onSelected = { viewModel.updateSelectedDirection(it) }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Mode
-                ModeSelector(
-                    selected = uiState.selectedMode,
-                    onSelected = { viewModel.updateSelectedMode(it) }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { viewModel.startSession() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ),
-                    enabled = uiState.selectedBank.isNotBlank()
-                ) {
-                    Text("开始学习", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            // Bank selection card
+            IosCard {
+                Column(Modifier.padding(16.dp)) {
+                    Text("词库", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(
+                        value = uiState.selectedBank,
+                        onValueChange = { viewModel.updateSelectedBank(it) },
+                        placeholder = { Text("输入词库名称") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent
+                        )
+                    )
                 }
+            }
+
+            // Direction card
+            IosCard {
+                Column(Modifier.padding(16.dp)) {
+                    Text("方向", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp))
+                    IosSegmentedControl(
+                        items = listOf("看单词" to "word-first", "看释义" to "def-first"),
+                        selectedValue = uiState.selectedDirection,
+                        onSelection = { viewModel.updateSelectedDirection(it) }
+                    )
+                }
+            }
+
+            // Mode card
+            IosCard {
+                Column(Modifier.padding(16.dp)) {
+                    Text("模式", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ModeButton("闪卡", "flashcard", uiState.selectedMode,
+                                Modifier.weight(1f)) { viewModel.updateSelectedMode(it) }
+                            ModeButton("答题", "quiz", uiState.selectedMode,
+                                Modifier.weight(1f)) { viewModel.updateSelectedMode(it) }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ModeButton("打字", "typing", uiState.selectedMode,
+                                Modifier.weight(1f)) { viewModel.updateSelectedMode(it) }
+                            ModeButton("间隔重复", "srs", uiState.selectedMode,
+                                Modifier.weight(1f)) { viewModel.updateSelectedMode(it) }
+                        }
+                    }
+                }
+            }
+
+            // Start button
+            Button(
+                onClick = { viewModel.startSession() },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                enabled = uiState.selectedBank.isNotBlank()
+            ) {
+                Text("开始学习", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 @Composable
-private fun BankSelector(
-    selectedBank: String,
-    onBankSelected: (String) -> Unit
-) {
-    // This would list available banks from the repository
-    // For simplicity, using a text field that the user can type the bank name
-    OutlinedTextField(
-        value = selectedBank,
-        onValueChange = onBankSelected,
-        placeholder = { Text("输入词库名称") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        shape = RoundedCornerShape(10.dp)
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DirectionSelector(
-    selected: String,
-    onSelected: (String) -> Unit
-) {
-    val options = listOf("word-first" to "看单词回忆释义", "def-first" to "看释义回忆单词")
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(10.dp)
-            )
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        options.forEach { (value, label) ->
-            FilterChip(
-                selected = selected == value,
-                onClick = { onSelected(value) },
-                label = { Text(label, fontSize = 13.sp) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(8.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ModeSelector(
-    selected: String,
-    onSelected: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ModeChip("flashcard", "闪卡模式", selected, onSelected, Modifier.weight(1f))
-            ModeChip("quiz", "答题测验", selected, onSelected, Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ModeChip("typing", "打字模式", selected, onSelected, Modifier.weight(1f))
-            ModeChip("srs", "🧠 间隔重复", selected, onSelected, Modifier.weight(1f))
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ModeChip(
-    value: String,
+private fun ModeButton(
     label: String,
+    value: String,
     selected: String,
-    onSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSelect: (String) -> Unit
 ) {
-    FilterChip(
-        selected = selected == value,
-        onClick = { onSelected(value) },
-        label = { Text(label, fontSize = 13.sp) },
-        modifier = modifier,
-        shape = RoundedCornerShape(10.dp)
-    )
+    val isSelected = selected == value
+    val bg = if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.surface
+    val fg = if (isSelected) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurface
+
+    Button(
+        onClick = { onSelect(value) },
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = bg,
+            contentColor = fg
+        ),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
 }
 
 // ===== Session View =====
@@ -207,45 +192,41 @@ private fun LearnSessionView(
     val learnState = uiState.learnState ?: return
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Header
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        // iOS Nav bar style header
+        Surface(
+            color = MaterialTheme.colorScheme.background,
+            shadowElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    learnState.progress,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    uiState.elapsedText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SmallOutlinedButton("⏸ 暂停") { viewModel.pauseSession() }
-                    SmallOutlinedButton("退出") { viewModel.quitSession() }
+                Text(learnState.progress, style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold)
+                Text(uiState.elapsedText, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { viewModel.pauseSession() }) {
+                        Text("暂停", color = iosBlue, fontSize = 15.sp)
+                    }
+                    TextButton(onClick = { viewModel.quitSession() }) {
+                        Text("退出", color = iosRed, fontSize = 15.sp)
+                    }
                 }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Content area
+        // Content
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
+                .padding(top = 8.dp)
         ) {
             when (learnState.mode) {
                 "flashcard" -> FlashcardMode(learnState, uiState, viewModel)
@@ -270,29 +251,18 @@ private fun FlashcardMode(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .clickable { viewModel.flipCard() },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
+                modifier = Modifier.fillMaxSize().padding(24.dp)
             ) {
-                // Tag
-                Text(
-                    learnState.progress,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.TopEnd)
-                )
-
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -303,7 +273,6 @@ private fun FlashcardMode(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-
                     if (learnState.answered) {
                         Text(
                             card.back,
@@ -313,7 +282,7 @@ private fun FlashcardMode(
                         )
                     } else {
                         Text(
-                            "点击卡片显示答案",
+                            "点击显示答案",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center
@@ -323,41 +292,30 @@ private fun FlashcardMode(
             }
         }
 
-        // Action buttons
         if (learnState.answered) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
                     onClick = { viewModel.answerCard(false) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = vermillionLight,
-                        contentColor = vermillion
+                        containerColor = iosRedLight,
+                        contentColor = iosRed
                     )
-                ) {
-                    Text("不认识", fontWeight = FontWeight.SemiBold)
-                }
+                ) { Text("不认识", fontWeight = FontWeight.SemiBold) }
                 Button(
                     onClick = { viewModel.answerCard(true) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = jadeLight,
-                        contentColor = jade
+                        containerColor = iosGreenLight,
+                        contentColor = iosGreen
                     )
-                ) {
-                    Text("认识了", fontWeight = FontWeight.SemiBold)
-                }
+                ) { Text("认识了", fontWeight = FontWeight.SemiBold) }
             }
         }
     }
@@ -381,82 +339,48 @@ private fun SrsMode(
                 .fillMaxWidth()
                 .weight(1f)
                 .clickable { viewModel.flipSrsCard() },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
-            ) {
-                Text(
-                    learnState.progress,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.TopEnd)
-                )
-
+            Box(modifier = Modifier.fillMaxSize().padding(24.dp)) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        card.front,
+                    Text(card.front,
                         style = MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
+                        textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 12.dp))
                     if (learnState.answered) {
-                        Text(
-                            card.back,
-                            style = MaterialTheme.typography.titleLarge,
+                        Text(card.back, style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                            textAlign = TextAlign.Center)
                     } else {
-                        Text(
-                            "点击卡片显示答案",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline,
-                            textAlign = TextAlign.Center
-                        )
+                        Text("点击显示答案", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline, textAlign = TextAlign.Center)
                     }
                 }
             }
         }
 
         if (learnState.answered) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                "掌握程度：",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // SRS rating buttons
+            Spacer(Modifier.height(12.dp))
+            Text("掌握程度", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.height(8.dp))
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    SrsRatingButton("0\n忘记", onClick = { viewModel.answerSrsCard(0) }, Modifier.weight(1f))
-                    SrsRatingButton("1\n错误", onClick = { viewModel.answerSrsCard(1) }, Modifier.weight(1f))
-                    SrsRatingButton("2\n模糊", onClick = { viewModel.answerSrsCard(2) }, Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SrsButton("忘记", "0", onClick = { viewModel.answerSrsCard(0) }, Modifier.weight(1f))
+                    SrsButton("错误", "1", onClick = { viewModel.answerSrsCard(1) }, Modifier.weight(1f))
+                    SrsButton("模糊", "2", onClick = { viewModel.answerSrsCard(2) }, Modifier.weight(1f))
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    SrsRatingButton("3\n困难", onClick = { viewModel.answerSrsCard(3) }, Modifier.weight(1f))
-                    SrsRatingButton("4\n顺利", onClick = { viewModel.answerSrsCard(4) }, Modifier.weight(1f))
-                    SrsRatingButton("5\n完美", onClick = { viewModel.answerSrsCard(5) }, Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SrsButton("困难", "3", onClick = { viewModel.answerSrsCard(3) }, Modifier.weight(1f))
+                    SrsButton("顺利", "4", onClick = { viewModel.answerSrsCard(4) }, Modifier.weight(1f))
+                    SrsButton("完美", "5", onClick = { viewModel.answerSrsCard(5) }, Modifier.weight(1f))
                 }
             }
         }
@@ -464,20 +388,24 @@ private fun SrsMode(
 }
 
 @Composable
-private fun SrsRatingButton(
-    text: String,
+private fun SrsButton(
+    label: String,
+    rating: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.height(52.dp),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     ) {
-        Text(text, fontSize = 11.sp, textAlign = TextAlign.Center, lineHeight = 14.sp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(rating, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(label, fontSize = 10.sp)
+        }
     }
 }
 
@@ -499,82 +427,51 @@ private fun QuizMode(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    learnState.progress,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.TopEnd)
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        "请选择正确的答案",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    Text(
-                        card.front,
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text("选择正确的答案", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(bottom = 16.dp))
+                Text(card.front, style = MaterialTheme.typography.headlineLarge,
+                    textAlign = TextAlign.Center)
             }
         }
 
-        // Options
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             uiState.quizOptions.forEach { option ->
                 val bgColor = when {
-                    option.isDisabled && option.isCorrect -> jadeLight
-                    option.isSelected && !option.isCorrect -> vermillionLight
+                    option.isDisabled && option.isCorrect -> iosGreenLight
+                    option.isSelected && !option.isCorrect -> iosRedLight
                     else -> MaterialTheme.colorScheme.surface
                 }
                 val textColor = when {
-                    option.isDisabled && option.isCorrect -> jade
-                    option.isSelected && !option.isCorrect -> vermillion
+                    option.isDisabled && option.isCorrect -> iosGreen
+                    option.isSelected && !option.isCorrect -> iosRed
                     else -> MaterialTheme.colorScheme.onSurface
                 }
-
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(enabled = !option.isDisabled) { viewModel.answerQuiz(option) },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = bgColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Text(
-                        option.text,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                    Text(option.text,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         style = MaterialTheme.typography.bodyLarge,
                         color = textColor,
-                        fontWeight = if (option.isDisabled) FontWeight.SemiBold else FontWeight.Normal
-                    )
+                        fontWeight = if (option.isDisabled) FontWeight.SemiBold else FontWeight.Normal)
                 }
             }
         }
@@ -604,68 +501,37 @@ private fun TypingMode(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    learnState.progress,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.TopEnd)
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        card.back,
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    Text(
-                        "请拼写单词，按回车提交",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
+                Text(card.back, style = MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp),
+                    textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 12.dp))
+                Text("拼写单词，按回车提交", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline)
             }
         }
 
-        // Input
         val borderColor = when {
-            uiState.typingIsCorrect == true -> jade
-            uiState.typingIsCorrect == false -> vermillion
+            uiState.typingIsCorrect == true -> iosGreen
+            uiState.typingIsCorrect == false -> iosRed
             else -> MaterialTheme.colorScheme.outlineVariant
         }
         val bgColor = when {
-            uiState.typingIsCorrect == true -> jadeLight
-            uiState.typingIsCorrect == false -> vermillionLight
+            uiState.typingIsCorrect == true -> iosGreenLight
+            uiState.typingIsCorrect == false -> iosRedLight
             else -> MaterialTheme.colorScheme.surface
         }
 
         OutlinedTextField(
             value = inputText,
-            onValueChange = {
-                if (!learnState.answered) {
-                    inputText = it
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
+            onValueChange = { if (!learnState.answered) inputText = it },
+            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
             singleLine = true,
             textStyle = MaterialTheme.typography.headlineSmall.copy(textAlign = TextAlign.Center),
             shape = RoundedCornerShape(14.dp),
@@ -678,43 +544,30 @@ private fun TypingMode(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = {
-                    if (!learnState.answered) {
-                        viewModel.submitTypingAnswer(inputText)
-                    } else {
-                        viewModel.nextTypingQuestion()
-                        inputText = ""
-                    }
+                    if (!learnState.answered) viewModel.submitTypingAnswer(inputText)
+                    else { viewModel.nextTypingQuestion(); inputText = "" }
                 }
             ),
             enabled = !learnState.answered || uiState.typingIsCorrect != null
         )
 
-        // Feedback
         if (uiState.typingFeedback.isNotEmpty()) {
-            Text(
-                uiState.typingFeedback,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (uiState.typingIsCorrect == true) jade else vermillion,
+            Text(uiState.typingFeedback, style = MaterialTheme.typography.titleMedium,
+                color = if (uiState.typingIsCorrect == true) iosGreen else iosRed,
                 modifier = Modifier.padding(vertical = 12.dp),
-                fontWeight = FontWeight.SemiBold
-            )
+                fontWeight = FontWeight.SemiBold)
         }
 
         if (learnState.answered) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
             Button(
-                onClick = {
-                    viewModel.nextTypingQuestion()
-                    inputText = ""
-                },
-                shape = RoundedCornerShape(10.dp),
+                onClick = { viewModel.nextTypingQuestion(); inputText = "" },
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = jade,
+                    containerColor = iosGreen,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
-            ) {
-                Text("下一题")
-            }
+            ) { Text("下一题") }
         }
     }
 }
@@ -726,51 +579,34 @@ private fun ResultView(
     uiState: LearnUiState
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
+        Text(
+            uiState.resultTitle,
+            style = MaterialTheme.typography.displayMedium,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            uiState.resultBank,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        IosCard {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    uiState.resultTitle,
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Text(
-                    uiState.resultBank,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
-
-                // Stats grid
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatItem("总题数", uiState.resultTotal.toString(), Modifier.weight(1f))
                     StatItem("正确", uiState.resultRemembered.toString(), Modifier.weight(1f))
                     StatItem("正确率", uiState.resultAccuracy, Modifier.weight(1f))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatItem("用时", uiState.resultDuration, Modifier.weight(1f))
                     StatItem("平均每题", uiState.resultAvgTime, Modifier.weight(1f))
                     StatItem("错误", uiState.resultForgotten.toString(), Modifier.weight(1f))
@@ -778,32 +614,24 @@ private fun ResultView(
             }
         }
 
-        // Action buttons
+        Spacer(Modifier.height(24.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
                 onClick = { viewModel.retrySession() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
-            ) {
-                Text("再来一轮")
-            }
+            ) { Text("再来一轮") }
             OutlinedButton(
                 onClick = { viewModel.goBackToSetup() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("返回选择")
-            }
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("返回选择") }
         }
     }
 }
@@ -814,31 +642,14 @@ private fun StatItem(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+    Column(
+        modifier = modifier.padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Text(value, style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -848,72 +659,86 @@ private fun PauseOverlay(viewModel: LearnViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+            .background(Color.Black.copy(alpha = 0.35f))
             .clickable(enabled = false) { },
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            modifier = Modifier.widthIn(max = 280.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text("⏸️", fontSize = 36.sp)
-                Text(
-                    "已暂停",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                Text(
-                    "进度已自动保存",
-                    style = MaterialTheme.typography.bodyMedium,
+                Text("已暂停", style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.padding(vertical = 4.dp))
+                Text("进度已自动保存", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
+                    modifier = Modifier.padding(bottom = 24.dp))
                 Button(
                     onClick = { viewModel.continueFromPause() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("继续学习")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("继续学习") }
+                Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { viewModel.saveAndQuit() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = vermillion
-                    )
-                ) {
-                    Text("保存并退出")
-                }
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = iosRed)
+                ) { Text("保存并退出") }
             }
         }
     }
 }
 
+// ===== Shared iOS Components =====
+
 @Composable
-private fun SmallOutlinedButton(
-    text: String,
-    onClick: () -> Unit
-) {
-    OutlinedButton(
-        onClick = onClick,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(6.dp)
+fun IosCard(content: @Composable () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Text(text, fontSize = 12.sp)
+        content()
+    }
+}
+
+@Composable
+fun IosSegmentedControl(
+    items: List<Pair<String, String>>,
+    selectedValue: String,
+    onSelection: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        items.forEach { (label, value) ->
+            val isSelected = selectedValue == value
+            Text(
+                label,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                        RoundedCornerShape(7.dp)
+                    )
+                    .clickable { onSelection(value) }
+                    .padding(vertical = 8.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

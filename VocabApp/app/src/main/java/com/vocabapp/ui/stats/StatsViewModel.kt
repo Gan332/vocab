@@ -19,8 +19,11 @@ data class StatsUiState(
     val dailyGoal: Int = 20,
     val todayCount: Int = 0,
     val streak: Int = 0,
-    val checkins: List<CheckinEntity> = emptyList()
+    val checkins: List<CheckinEntity> = emptyList(),
+    val weeklyData: List<WeeklyBar> = emptyList()
 )
+
+data class WeeklyBar(val label: String, val count: Int, val isToday: Boolean)
 
 class StatsViewModel(
     private val repository: VocabRepository
@@ -49,7 +52,8 @@ class StatsViewModel(
                     totalDuration = "${totalDuration / 60}m",
                     todayCount = todayCount,
                     streak = streak,
-                    checkins = checkins
+                    checkins = checkins,
+                    weeklyData = buildWeeklyData(checkins)
                 )
             }
         }
@@ -68,21 +72,33 @@ class StatsViewModel(
         val goal = _uiState.value.dailyGoal
         val checkinMap = checkins.associate { it.date to it.count }
         var streak = 0
-        val cal = java.util.Calendar.getInstance()
-
         for (i in 0 until 365) {
             val key = TimeUtils.getDateString(-i)
             val count = checkinMap[key] ?: 0
             if (count >= goal) {
                 streak++
             } else if (i == 0) {
-                // Today not yet completed - check yesterday
                 continue
             } else {
                 break
             }
         }
         return streak
+    }
+
+    private fun buildWeeklyData(checkins: List<CheckinEntity>): List<WeeklyBar> {
+        val dayLabels = listOf("日", "一", "二", "三", "四", "五", "六")
+        val checkinMap = checkins.associate { it.date to it.count }
+        val result = mutableListOf<WeeklyBar>()
+        for (i in 6 downTo 0) {
+            val key = TimeUtils.getDateString(-i)
+            val count = checkinMap[key] ?: 0
+            val cal = java.util.Calendar.getInstance()
+            cal.add(java.util.Calendar.DAY_OF_YEAR, -i)
+            val dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1
+            result.add(WeeklyBar(dayLabels[dayOfWeek], count, i == 0))
+        }
+        return result
     }
 
     companion object {

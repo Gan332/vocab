@@ -369,11 +369,14 @@ class LearnViewModel(
         val card = state.currentCard ?: return
 
         val isCorrect = answer.trim().equals(card.word.trim(), ignoreCase = true)
+        val newRemembered = if (isCorrect) state.remembered + 1 else state.remembered
+        val newForgotten = if (!isCorrect) state.forgotten + 1 else state.forgotten
+
         _uiState.update {
             it.copy(
                 typingFeedback = if (isCorrect) "✓ 正确！" else "✗ 正确答案：${card.word}",
                 typingIsCorrect = isCorrect,
-                learnState = state.copy(answered = true)
+                learnState = state.copy(answered = true, remembered = newRemembered, forgotten = newForgotten)
             )
         }
 
@@ -382,12 +385,11 @@ class LearnViewModel(
                 repository.addToWrongBook(card.word, card.definition, state.bankName)
             }
 
-            val newRemembered = if (isCorrect) state.remembered + 1 else state.remembered
-            val newForgotten = if (!isCorrect) state.forgotten + 1 else state.forgotten
+            val currentState = _uiState.value.learnState ?: return@launch
             val newIndex = state.index + 1
 
             if (newIndex >= state.cards.size) {
-                endSession(state.copy(remembered = newRemembered, forgotten = newForgotten))
+                endSession(currentState)
             }
         }
     }

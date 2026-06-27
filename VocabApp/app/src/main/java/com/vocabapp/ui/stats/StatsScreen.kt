@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vocabapp.data.db.entity.HistoryEntity
 import com.vocabapp.ui.theme.*
 import com.vocabapp.util.TimeUtils
+import com.vocabapp.ui.learn.IosCard
 
 @Composable
 fun StatsScreen(
@@ -32,96 +33,147 @@ fun StatsScreen(
         viewModel.loadStats()
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Summary cards
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SummaryCard("学习次数", uiState.sessionCount.toString(), Modifier.weight(1f))
-                SummaryCard("平均正确率", uiState.averageAccuracy, Modifier.weight(1f))
-                SummaryCard("总用时", uiState.totalDuration, Modifier.weight(1f))
-            }
-        }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            "统计",
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier.padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 4.dp)
+        )
 
-        // Daily goal section
-        item {
-            DailyGoalSection(uiState, viewModel)
-        }
-
-        // History header
-        item {
-            Text(
-                "历史记录",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-        }
-
-        // History items
-        if (uiState.history.isEmpty()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Summary row
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Text(
-                        "暂无学习记录",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.outline
-                    )
+                IosCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        SummaryValue("学习次数", uiState.sessionCount.toString())
+                        SummaryValue("平均正确率", uiState.averageAccuracy)
+                        SummaryValue("总用时", uiState.totalDuration)
+                    }
                 }
             }
-        }
 
-        items(uiState.history, key = { it.id }) { history ->
-            HistoryItem(history)
-        }
+            // Daily goal section
+            item {
+                DailyGoalSection(uiState, viewModel)
+            }
 
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+            // Weekly chart
+            if (uiState.weeklyData.isNotEmpty()) {
+                item {
+                    WeeklyChartSection(uiState.weeklyData)
+                }
+            }
+
+            // History header
+            item {
+                Text(
+                    "历史记录",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                )
+            }
+
+            if (uiState.history.isEmpty()) {
+                item {
+                    IosCard {
+                        Text(
+                            "暂无学习记录",
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            items(uiState.history, key = { it.id }) { history ->
+                HistoryItem(history)
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+        }
     }
 }
 
 @Composable
-private fun SummaryCard(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+private fun SummaryValue(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun WeeklyChartSection(weeklyData: List<WeeklyBar>) {
+    val maxCount = weeklyData.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
+
+    IosCard {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(
-                value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                "📊 本周学习",
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                weeklyData.forEach { bar ->
+                    Column(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        if (bar.count > 0) {
+                            Text(
+                                bar.count.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(top = 4.dp),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            val barHeight = if (bar.count > 0) {
+                                (bar.count.toFloat() / maxCount).coerceAtLeast(0.03f)
+                            } else 0.03f
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(barHeight)
+                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                    .background(
+                                        if (bar.count > 0) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                            )
+                        }
+                        Text(
+                            bar.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (bar.isToday) FontWeight.Bold else FontWeight.Normal,
+                            color = if (bar.isToday) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -136,31 +188,24 @@ private fun DailyGoalSection(
     val pct = if (goal > 0) (todayCount.toFloat() / goal).coerceAtMost(1f) else 0f
     val streak = uiState.streak
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    IosCard {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "📅 每日目标",
-                    style = MaterialTheme.typography.headlineSmall
-                )
+                Text("📅 每日目标", style = MaterialTheme.typography.headlineLarge)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    var goalText by remember(goal) { mutableStateOf(goal.toString()) }
+                    var goalText by remember { mutableStateOf(goal.toString()) }
+                    LaunchedEffect(goal) {
+                        if (goalText.toIntOrNull() != goal) goalText = goal.toString()
+                    }
                     OutlinedTextField(
                         value = goalText,
                         onValueChange = {
@@ -170,48 +215,38 @@ private fun DailyGoalSection(
                         modifier = Modifier.width(60.dp),
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
-                        shape = RoundedCornerShape(6.dp)
+                        shape = RoundedCornerShape(8.dp)
                     )
-                    Text("词 / 天", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text("词/天", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Progress ring (simplified as a horizontal bar)
             LinearProgressIndicator(
                 progress = pct,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                color = jade,
+                modifier = Modifier.fillMaxWidth().height(10.dp)
+                    .clip(RoundedCornerShape(5.dp)),
+                color = iosGreen,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    "$todayCount / $goal",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = jade,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    "🔥 $streak 天连续打卡",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = amber,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text("$todayCount / $goal", style = MaterialTheme.typography.bodyMedium,
+                    color = iosGreen, fontWeight = FontWeight.SemiBold)
+                Text("🔥 $streak 天连续打卡", style = MaterialTheme.typography.bodyMedium,
+                    color = iosOrange, fontWeight = FontWeight.SemiBold)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Calendar (last 28 days)
+            // Calendar grid (28 days)
             val checkinMap = remember(uiState.checkins) {
                 uiState.checkins.associate { it.date to it.count }
             }
@@ -222,22 +257,15 @@ private fun DailyGoalSection(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     listOf("日", "一", "二", "三", "四", "五", "六").forEach { day ->
-                        Text(
-                            day,
-                            style = MaterialTheme.typography.labelSmall,
+                        Text(day, style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.width(28.dp),
-                            textAlign = TextAlign.Center
-                        )
+                            modifier = Modifier.width(28.dp), textAlign = TextAlign.Center)
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                // 4 weeks
+                Spacer(Modifier.height(4.dp))
                 for (week in 0 until 4) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         for (dayOfWeek in 0 until 7) {
@@ -249,30 +277,25 @@ private fun DailyGoalSection(
                             val isPartial = count > 0
 
                             val bgColor = when {
-                                isDone -> jade
-                                isPartial -> jadeLight
+                                isDone -> iosGreen
+                                isPartial -> iosGreenLight
                                 else -> Color.Transparent
                             }
                             val textColor = when {
                                 isDone -> Color.White
-                                isPartial -> jade
+                                isPartial -> iosGreen
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
 
                             Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(bgColor),
+                                modifier = Modifier.size(28.dp)
+                                    .clip(CircleShape).background(bgColor),
                                 contentAlignment = Alignment.Center
                             ) {
                                 val dayNum = date.substringAfterLast("-").removePrefix("0").toIntOrNull() ?: 0
-                                Text(
-                                    "$dayNum",
-                                    style = MaterialTheme.typography.labelSmall,
+                                Text("$dayNum", style = MaterialTheme.typography.labelSmall,
                                     color = textColor,
-                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
-                                )
+                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal)
                             }
                         }
                     }
@@ -285,84 +308,51 @@ private fun DailyGoalSection(
 @Composable
 private fun HistoryItem(history: HistoryEntity) {
     val modeLabels = mapOf(
-        "flashcard" to "闪卡",
-        "quiz" to "答题",
-        "typing" to "打字",
-        "srs" to "间隔重复"
+        "flashcard" to "闪卡", "quiz" to "答题",
+        "typing" to "打字", "srs" to "间隔重复"
     )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
-    ) {
+    IosCard {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        history.bankName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
-                    )
-                    Text(
-                        "${history.total} 题 · ${history.remembered} 正确",
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(history.bankName, style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("${history.total} 题 · ${history.remembered} 正确",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
+                        color = MaterialTheme.colorScheme.outline)
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        modeLabels[history.mode] ?: "闪卡",
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(modeLabels[history.mode] ?: "闪卡",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
+                            .background(MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(12.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp))
                     if (history.interrupted) {
-                        Text(
-                            "中断",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = amber,
+                        Text("中断", style = MaterialTheme.typography.labelSmall,
+                            color = iosOrange,
                             modifier = Modifier
-                                .background(amberLight, RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
+                                .background(iosOrangeLight, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 8.dp, vertical = 2.dp))
                     }
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "${history.accuracy}%",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = jade
-                )
-                Text(
-                    "${TimeUtils.formatDuration(history.duration)} · ${
-                        java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault())
-                            .format(java.util.Date(history.date))
-                    }",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                Text("${history.accuracy}%", style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold, color = iosGreen)
+                Text("${TimeUtils.formatDuration(history.duration)} · ${
+                    java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault())
+                        .format(java.util.Date(history.date))
+                }", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline)
             }
         }
     }

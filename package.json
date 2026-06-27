@@ -9,12 +9,26 @@
     "cap:build": "npx cap build android"
   },
   "dependencies": {
-    "@capacitor/core": "^6.0.0"
+    "@capacitor/core": "^6.0.0",
+    "@material/web": "^2.4.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0",
-    "@capacitor/android": "^6.0.0"
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0"
   },
-  "keywords": ["vocabulary", "learning"],
-  "license": "MIT"
+  "keywords": [
+    "vocabulary",
+    "learning"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gan332/vocab.git"
+  },
+  "author": "",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Gan332/vocab/issues"
+  },
+  "homepage": "https://github.com/Gan332/vocab#readme"
 }

@@ -9,45 +9,80 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="背单词">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+<script type="importmap">
+{
+  "imports": {
+    "@material/web/": "https://unpkg.com/@material/web@2.4.1/"
+  }
+}
+</script>
+<script type="module">
+import '@material/web/button/filled-button.js';
+import '@material/web/button/filled-tonal-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/iconbutton/icon-button.js';
+import '@material/web/labs/navigationbar/navigation-bar.js';
+import '@material/web/labs/navigationtab/navigation-tab.js';
+import '@material/web/textfield/outlined-text-field.js';
+import '@material/web/select/filled-select.js';
+import '@material/web/select/select-option.js';
+import '@material/web/dialog/dialog.js';
+import '@material/web/tabs/tabs.js';
+import '@material/web/tabs/primary-tab.js';
+import '@material/web/labs/segmentedbutton/outlined-segmented-button.js';
+import '@material/web/labs/segmentedbuttonset/outlined-segmented-button-set.js';
+import '@material/web/divider/divider.js';
+</script>
 <script defer>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.register('sw.js?v=2');
 }
 </script>
 </head>
 <body>
 <div class="app" id="app">
-  <header>
-    <div class="header-top">
-      <h1>背单词</h1>
-      <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
-    </div>
-  </header>
+  <md-icon-button id="themeToggle" title="切换主题" class="theme-toggle">
+    <span class="material-symbols-outlined">dark_mode</span>
+  </md-icon-button>
 
   <!-- 词库页 -->
   <div class="page active" id="page-banks">
-    <div class="bank-header">
-      <h2>我的词库</h2>
-      <button class="btn-market" id="btnMarket" title="词库市场">📥 获取词库</button>
-    </div>
+    <div class="ios-title">词库</div>
+
     <div class="search-area">
-      <input type="text" class="search-input" id="bankSearch" placeholder="🔍 搜索词库或单词..." autocomplete="off">
+      <md-outlined-text-field id="bankSearch" placeholder="搜索" type="search">
+        <span slot="leading-icon" class="material-symbols-outlined">search</span>
+      </md-outlined-text-field>
     </div>
+
     <div class="import-area" id="dropZone">
       <div class="icon">📂</div>
-      <p>点击或拖拽导入 TXT 词库文件</p>
-      <p style="font-size:12px;color:#aaa;margin-top:4px;">每行格式: 单词 - 释义 或 单词\t释义 或 单词|释义</p>
+      <p>导入 TXT 词库</p>
+      <div class="import-hint">每行: 单词 - 释义</div>
       <input type="file" id="fileInput" accept=".txt">
     </div>
+
     <div class="bank-list" id="bankList"></div>
+
+    <div class="import-btn-area">
+      <md-filled-button id="btnMarket">获取词库</md-filled-button>
+    </div>
+
+    <!-- Word List Overlay -->
     <div class="word-list-overlay" id="wordListOverlay">
       <div class="word-list-panel">
         <div class="word-list-header">
           <h3 id="wordListTitle">单词列表</h3>
-          <button class="word-list-close" id="wordListClose">&times;</button>
+          <md-icon-button id="wordListClose">
+            <span class="material-symbols-outlined">close</span>
+          </md-icon-button>
         </div>
         <div class="word-list-search">
-          <input type="text" id="wordListSearch" placeholder="过滤单词..." autocomplete="off">
+          <md-outlined-text-field id="wordListSearch" placeholder="过滤单词..." type="search" class="flex-1">
+            <span slot="leading-icon" class="material-symbols-outlined">search</span>
+          </md-outlined-text-field>
           <span class="word-count" id="wordCount">0 词</span>
         </div>
         <div class="word-list-body" id="wordListBody"></div>
@@ -55,143 +90,180 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <!-- 词库市场 -->
-    <div class="market-overlay" id="marketOverlay">
-      <div class="market-panel">
-        <div class="market-header">
-          <h3>📥 词库市场</h3>
-          <button class="market-close" id="marketClose">&times;</button>
-        </div>
-        <div class="market-tabs">
-          <button class="market-tab active" data-tab="builtin">内置词库</button>
-          <button class="market-tab" data-tab="url-import">从 URL 导入</button>
-        </div>
+    <md-dialog id="marketOverlay">
+      <div slot="headline">词库市场</div>
+      <div slot="content">
+        <md-tabs id="marketTabs">
+          <md-primary-tab id="tabBuiltin">内置词库</md-primary-tab>
+          <md-primary-tab id="tabUrlImport">从 URL 导入</md-primary-tab>
+        </md-tabs>
 
-        <!-- 内置词库 -->
-        <div class="market-content active" id="marketBuiltin">
+        <div id="marketBuiltin" class="market-tab-content" style="display:block;">
           <div class="market-builtin-list" id="marketBuiltinList"></div>
         </div>
 
-        <!-- URL 导入 -->
-        <div class="market-content" id="marketUrlImport">
+        <div id="marketUrlImport" class="market-tab-content" style="display:none;">
           <div class="url-import-area">
-            <p class="url-import-desc">输入 TXT 词库文件的直链 URL，文件格式与本地导入相同：</p>
-            <div class="url-format-hint">每行格式: 单词 - 释义 或 单词\t释义 或 单词|释义</div>
+            <p class="url-import-desc">输入 TXT 词库直链 URL：</p>
+            <div class="url-format-hint">每行格式: 单词 - 释义</div>
             <div class="url-input-group">
-              <input type="url" class="url-input" id="urlInput" placeholder="https://example.com/words.txt" autocomplete="off" spellcheck="false">
-              <button class="btn-url-import" id="btnUrlImport">下载导入</button>
+              <md-outlined-text-field id="urlInput" placeholder="https://example.com/words.txt" type="url" class="flex-1">
+                <span slot="leading-icon" class="material-symbols-outlined">link</span>
+              </md-outlined-text-field>
+              <md-filled-button id="btnUrlImport">下载导入</md-filled-button>
             </div>
             <div class="url-status" id="urlStatus"></div>
           </div>
         </div>
       </div>
-    </div>
+      <div slot="actions">
+        <md-text-button id="marketClose">关闭</md-text-button>
+      </div>
+    </md-dialog>
   </div>
 
   <!-- 学习页 -->
   <div class="page" id="page-learn">
     <div class="learn-setup" id="learnSetup">
-      <h2 id="setupTitle">选择词库开始学习</h2>
+      <div class="ios-title">学习</div>
 
-      <div id="resumeBanner" style="display:none;margin-bottom:12px;">
-        <button class="btn-resume" id="btnResume">▶ 继续上次学习</button>
-        <button style="padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;margin:4px;" id="btnClearSaved">放弃</button>
+      <div id="resumeBanner" style="display:none;">
+        <md-filled-tonal-button id="btnResume">▶ 继续上次学习</md-filled-tonal-button>
+        <md-text-button id="btnClearSaved">放弃</md-text-button>
       </div>
 
-      <div>
-        <select id="bankSelect"><option value="">-- 请选择词库 --</option></select>
+      <div class="ios-card">
+        <div class="options-label">词库</div>
+        <md-filled-select id="bankSelect" label="选择词库" class="full-width">
+          <md-select-option value="">
+            <div slot="headline">-- 请选择词库 --</div>
+          </md-select-option>
+        </md-filled-select>
       </div>
-      <div class="options">
-        <label><input type="radio" name="direction" value="word-first" checked> 看单词回忆释义</label>
-        <label><input type="radio" name="direction" value="def-first"> 看释义回忆单词</label>
+
+      <div class="ios-card">
+        <div class="options-label">学习方向</div>
+        <md-outlined-segmented-button-set id="directionSet">
+          <md-outlined-segmented-button label="看单词" id="dirWordFirst" selected></md-outlined-segmented-button>
+          <md-outlined-segmented-button label="看释义" id="dirDefFirst"></md-outlined-segmented-button>
+        </md-outlined-segmented-button-set>
       </div>
-      <div class="mode-group">
-        <label><input type="radio" name="mode" value="flashcard" checked> 闪卡模式</label>
-        <label><input type="radio" name="mode" value="quiz"> 答题测验</label>
-        <label><input type="radio" name="mode" value="typing"> 打字模式</label>
-        <label><input type="radio" name="mode" value="srs"> 🧠 间隔重复</label>
+
+      <div class="ios-card">
+        <div class="options-label">学习模式</div>
+        <div class="mode-grid">
+          <md-outlined-segmented-button-set id="modeSet" class="mode-set">
+            <md-outlined-segmented-button label="闪卡" id="modeFlashcard" selected></md-outlined-segmented-button>
+            <md-outlined-segmented-button label="答题" id="modeQuiz"></md-outlined-segmented-button>
+            <md-outlined-segmented-button label="打字" id="modeTyping"></md-outlined-segmented-button>
+            <md-outlined-segmented-button label="间隔重复" id="modeSrs">
+              <span slot="icon" class="material-symbols-outlined">psychology</span>
+            </md-outlined-segmented-button>
+          </md-outlined-segmented-button-set>
+        </div>
       </div>
-      <div>
-        <button class="btn-start" id="btnStart">开始学习</button>
+
+      <div class="start-btn-area">
+        <md-filled-button id="btnStart">开始学习</md-filled-button>
       </div>
     </div>
 
     <div class="learn-session" id="learnSession">
-      <div class="learn-header">
+      <div class="learn-nav">
         <span class="progress-text" id="progressText">1 / 10</span>
         <span class="timer" id="timerDisplay">00:00</span>
         <div class="header-actions">
-          <button class="btn-pause" id="btnPause">⏸ 暂停</button>
-          <button class="btn-quit" id="btnQuit">退出</button>
+          <md-text-button id="btnPause">暂停</md-text-button>
+          <md-text-button id="btnQuit" class="btn-red-text">退出</md-text-button>
         </div>
       </div>
 
       <!-- 闪卡 -->
       <div id="flashcardArea">
-        <div class="card-container" id="cardContainer">
-          <div class="card" id="card">
-            <div class="tag" id="cardTag"></div>
-            <div class="word" id="cardWord"></div>
-            <div class="definition" id="cardDef"></div>
-            <div class="hint" id="cardHint">点击卡片显示答案</div>
-            <button class="star-btn" id="cardStar">☆</button>
-          </div>
+        <div class="study-card" id="card">
+          <div class="tag" id="cardTag"></div>
+          <md-icon-button class="star-btn" id="cardStar">
+            <span class="material-symbols-outlined" id="cardStarIcon">star_outline</span>
+          </md-icon-button>
+          <div class="word" id="cardWord"></div>
+          <div class="definition" id="cardDef"></div>
+          <div class="hint" id="cardHint">点击显示答案</div>
         </div>
         <div class="learn-actions" id="learnActions" style="display:none;">
-          <button class="btn-forgot" id="btnForgot">不认识</button>
-          <button class="btn-remember" id="btnRemember">认识了</button>
+          <md-filled-tonal-button id="btnForgot" class="btn-forgot">
+            <span slot="icon" class="material-symbols-outlined">close</span>
+            不认识
+          </md-filled-tonal-button>
+          <md-filled-tonal-button id="btnRemember" class="btn-remember">
+            <span slot="icon" class="material-symbols-outlined">check</span>
+            认识了
+          </md-filled-tonal-button>
         </div>
         <div class="srs-actions" id="srsActions" style="display:none;">
-          <div class="srs-label">掌握程度：</div>
-          <button class="srs-btn" data-rating="0">0 完全忘记</button>
-          <button class="srs-btn" data-rating="1">1 错误</button>
-          <button class="srs-btn" data-rating="2">2 模糊</button>
-          <button class="srs-btn" data-rating="3">3 困难</button>
-          <button class="srs-btn" data-rating="4">4 顺利</button>
-          <button class="srs-btn" data-rating="5">5 完美</button>
+          <div class="srs-label">掌握程度</div>
+          <div class="srs-chips">
+            <md-outlined-button class="srs-btn" data-rating="0">0 忘记</md-outlined-button>
+            <md-outlined-button class="srs-btn" data-rating="1">1 错误</md-outlined-button>
+            <md-outlined-button class="srs-btn" data-rating="2">2 模糊</md-outlined-button>
+            <md-outlined-button class="srs-btn" data-rating="3">3 困难</md-outlined-button>
+            <md-outlined-button class="srs-btn" data-rating="4">4 顺利</md-outlined-button>
+            <md-outlined-button class="srs-btn" data-rating="5">5 完美</md-outlined-button>
+          </div>
         </div>
       </div>
 
       <!-- 答题 -->
       <div id="quizArea" style="display:none;">
-        <div class="quiz-card">
+        <div class="study-card">
           <div class="tag" id="quizTag"></div>
-          <div class="question-label" id="quizLabel">请选择正确的释义</div>
-          <div class="question" id="quizQuestion">word</div>
-          <button class="star-btn" id="quizStar">☆</button>
+          <md-icon-button class="star-btn" id="quizStar">
+            <span class="material-symbols-outlined" id="quizStarIcon">star_outline</span>
+          </md-icon-button>
+          <div class="question-label" id="quizLabel">请选择正确的答案</div>
+          <div class="word" id="quizQuestion">word</div>
         </div>
         <div class="quiz-options" id="quizOptions"></div>
       </div>
 
       <!-- 打字 -->
       <div id="typingArea" style="display:none;">
-        <div class="card">
+        <div class="study-card">
           <div class="tag" id="typingTag"></div>
+          <md-icon-button class="star-btn" id="typingStar">
+            <span class="material-symbols-outlined" id="typingStarIcon">star_outline</span>
+          </md-icon-button>
           <div class="word" id="typingQuestion"></div>
           <div class="hint" id="typingHint">请拼写单词，按回车提交</div>
-          <button class="star-btn" id="typingStar">☆</button>
           <div class="typing-input-area">
-            <input type="text" id="typingInput" placeholder="输入单词..." autocomplete="off" autocapitalize="off" spellcheck="false">
+            <md-outlined-text-field id="typingInput" placeholder="输入单词..." type="text" class="typing-input">
+              <span slot="leading-icon" class="material-symbols-outlined">keyboard</span>
+            </md-outlined-text-field>
             <div class="feedback" id="typingFeedback"></div>
           </div>
         </div>
         <div class="learn-actions" id="typingActions" style="display:none;">
-          <button class="btn-remember" id="btnTypingNext">下一题</button>
+          <md-filled-tonal-button id="btnTypingNext">
+            <span slot="icon" class="material-symbols-outlined">arrow_forward</span>
+            下一题
+          </md-filled-tonal-button>
         </div>
       </div>
     </div>
 
     <!-- 暂停遮罩 -->
-    <div class="pause-overlay" id="pauseOverlay">
-      <div class="pause-dialog">
-        <div class="icon">⏸️</div>
-        <h3>已暂停</h3>
-        <p id="pauseInfo">进度已自动保存</p>
-        <div class="pause-actions">
-          <button class="btn-continue" id="btnContinue">继续学习</button>
-          <button class="btn-savequit" id="btnSaveQuit">保存并退出</button>
-        </div>
+    <md-dialog id="pauseOverlay">
+      <div slot="headline" class="pause-dialog-headline">
+        <span class="pause-dialog-emoji">⏸️</span><br>
+        已暂停
       </div>
-    </div>
+      <div slot="content" class="pause-dialog-content">
+        <p id="pauseInfo">进度已自动保存</p>
+      </div>
+      <div slot="actions" class="pause-dialog-actions">
+        <md-filled-button id="btnContinue">继续学习</md-filled-button>
+        <md-outlined-button id="btnSaveQuit">保存并退出</md-outlined-button>
+      </div>
+    </md-dialog>
 
     <div class="learn-session" id="learnResult">
       <div class="result-screen">
@@ -206,8 +278,8 @@ if ('serviceWorker' in navigator) {
           <div class="stat-item"><div class="num" id="resultForgotten">0</div><div class="label">错误</div></div>
         </div>
         <div class="result-actions">
-          <button class="btn-again" id="btnAgain">再来一轮</button>
-          <button class="btn-back" id="btnBackToSetup">返回选择</button>
+          <md-filled-button id="btnAgain">再来一轮</md-filled-button>
+          <md-outlined-button id="btnBackToSetup">返回选择</md-outlined-button>
         </div>
       </div>
     </div>
@@ -215,19 +287,22 @@ if ('serviceWorker' in navigator) {
 
   <!-- 统计页 -->
   <div class="page" id="page-stats">
+    <div class="ios-title">统计</div>
+
     <div class="stats-summary" id="statsSummary">
-      <div class="card"><div class="num" id="statSessions">0</div><div class="label">学习次数</div></div>
-      <div class="card"><div class="num" id="statAvgAcc">0%</div><div class="label">平均正确率</div></div>
-      <div class="card"><div class="num" id="statTotalTime">0m</div><div class="label">总用时</div></div>
+      <div class="stat-item"><div class="num" id="statSessions">0</div><div class="label">学习次数</div></div>
+      <div class="stat-item"><div class="num" id="statAvgAcc">0%</div><div class="label">平均正确率</div></div>
+      <div class="stat-item"><div class="num" id="statTotalTime">0m</div><div class="label">总用时</div></div>
     </div>
 
     <div class="goal-section">
       <div class="goal-header">
         <h3>📅 每日目标</h3>
         <div class="goal-edit">
-          <input type="number" class="goal-input" id="goalInput" min="1" max="500" value="20">
-          <span class="goal-label">词 / 天</span>
-          <button class="goal-save" id="goalSave">保存</button>
+          <md-outlined-text-field id="goalInput" type="number" min="1" max="500" value="20" class="goal-input">
+            <span slot="suffix">词/天</span>
+          </md-outlined-text-field>
+          <md-filled-button id="goalSave">保存</md-filled-button>
         </div>
       </div>
       <div class="goal-progress" id="goalProgress">
@@ -249,25 +324,30 @@ if ('serviceWorker' in navigator) {
       <div class="goal-calendar" id="goalCalendar"></div>
     </div>
 
-    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">历史记录</h3>
+    <!-- Weekly Chart -->
+    <div class="goal-section">
+      <div class="goal-header">
+        <h3>📊 本周学习</h3>
+      </div>
+      <div class="weekly-chart" id="weeklyChart"></div>
+    </div>
+
+    <div class="stats-section-title">历史记录</div>
     <div class="history-list" id="historyList"></div>
   </div>
 
-  <!-- Bottom Tab Bar -->
-  <nav class="tab-bar">
-    <button class="tab-bar-item active" data-tab="banks">
-      <span class="tab-icon">📚</span>
-      <span class="tab-label">词库</span>
-    </button>
-    <button class="tab-bar-item" data-tab="learn">
-      <span class="tab-icon">🧠</span>
-      <span class="tab-label">学习</span>
-    </button>
-    <button class="tab-bar-item" data-tab="stats">
-      <span class="tab-icon">📊</span>
-      <span class="tab-label">统计</span>
-    </button>
-  </nav>
+  <!-- Tab Bar -->
+  <md-navigation-bar id="tabBar" active-index="0">
+    <md-navigation-tab label="词库">
+      <span slot="icon" class="material-symbols-outlined">menu_book</span>
+    </md-navigation-tab>
+    <md-navigation-tab label="学习">
+      <span slot="icon" class="material-symbols-outlined">psychology</span>
+    </md-navigation-tab>
+    <md-navigation-tab label="统计">
+      <span slot="icon" class="material-symbols-outlined">bar_chart</span>
+    </md-navigation-tab>
+  </md-navigation-bar>
 </div>
 <script defer src="banks-data.js"></script>
 <script defer src="app.js"></script>

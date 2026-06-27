@@ -13,6 +13,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vocabapp.data.db.entity.WordEntity
+import com.vocabapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +26,7 @@ fun WordListSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
     ) {
         Column(
             modifier = Modifier
@@ -41,10 +42,7 @@ fun WordListSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    bankName,
-                    style = MaterialTheme.typography.headlineMedium
-                )
+                Text(bankName, style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = onDismiss) {
                     Text("✕", fontSize = 18.sp)
                 }
@@ -61,24 +59,26 @@ fun WordListSheet(
                 singleLine = true,
                 shape = RoundedCornerShape(10.dp),
                 trailingIcon = {
-                    Text("${words.size} 词", style = MaterialTheme.typography.bodySmall)
-                }
+                    Text("${words.size} 词", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface
+                )
             )
 
-            // Word list
             if (words.isEmpty()) {
                 Text(
                     "没有匹配的单词",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(words, key = { "${it.bankName}_${it.word}" }) { word ->
                         Row(
                             modifier = Modifier
@@ -87,19 +87,12 @@ fun WordListSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                word.word,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                word.definition,
-                                style = MaterialTheme.typography.bodyMedium,
+                            Text(word.word, style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium)
+                            Text(word.definition, style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 200.dp)
-                            )
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 200.dp))
                         }
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 20.dp),

@@ -1,0 +1,131 @@
+# =============================================================================
+# Release VocabApp
+# - 推送版本标签（v*）时自动构建签名 Release APK 并发布 GitHub Release
+# =============================================================================
+
+name: Release VocabApp
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+  SDK_API_LEVEL: '34'
+  SDK_BUILD_TOOLS: '34.0.0'
+
+jobs:
+  release:
+    name: Build & Publish Release APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # ===== 检出代码 =====
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ===== 环境准备 =====
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install required SDK components
+        run: |
+          set -x
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMANAGER=""
+          for p in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+                    "$ANDROID_HOME/tools/bin/sdkmanager"; do
+            if [ -x "$p" ]; then SDKMANAGER="$p"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::warning::sdkmanager not found, relying on pre-installed SDK"
+          else
+            echo "Using: $SDKMANAGER"
+            yes | "$SDKMANAGER" --install \
+              "platforms;android-${{ env.SDK_API_LEVEL }}" \
+              "build-tools;${{ env.SDK_BUILD_TOOLS }}" \
+              2>&1 | tail -5
+          fi
+
+      # ===== 权限 =====
+      - name: Grant execute permission for gradlew
+        run: chmod +x VocabApp/gradlew
+
+      # ===== 缓存 Gradle 依赖 =====
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('VocabApp/**/*.gradle*', 'VocabApp/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ===== 准备 Release 签名文件 =====
+      # 解码 KEYSTORE_BASE64 → keystore.jks，写入 keystore.properties
+      # ⚠️ 使用 env 传递 secrets（比 ${{ secrets.XXX }} 内联更安全）
+      - name: Decode keystore and create keystore.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          set -xeuo pipefail
+          cd VocabApp
+          echo "$KEYSTORE_BASE64" | base64 -d > app/keystore.jks
+          echo "storeFile=keystore.jks" > app/keystore.properties
+          echo "storePassword=$STORE_PASSWORD" >> app/keystore.properties
+          echo "keyAlias=$KEY_ALIAS" >> app/keystore.properties
+          echo "keyPassword=$KEY_PASSWORD" >> app/keystore.properties
+
+      # ===== 构建 Release APK =====
+      # ANDROID_HOME/ANDROID_SDK_ROOT 显式设置（setup-android@v4 的环境变量可能
+      # 被 step-level env 覆盖；加上 pipefail+PIPESTATUS 确保 Gradle 退出码正确传播）
+      - name: Build release APK
+        working-directory: ./VocabApp
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: |
+          set -xeuo pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build-output.log
+          exit ${PIPESTATUS[0]}
+
+      # ===== 重命名 APK =====
+      - name: Rename APK
+        run: |
+          TAG="${{ github.ref_name }}"
+          cp VocabApp/app/build/outputs/apk/release/*.apk "VocabApp-${TAG}.apk"
+
+      # ===== 发布 GitHub Release =====
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: VocabApp-${{ github.ref_name }}.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ===== 上传构建日志（失败时辅助排查） =====
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-release
+          path: VocabApp/build-output.log
+          if-no-files-found: warn
+          retention-days: 7

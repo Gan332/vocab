@@ -194,8 +194,8 @@ class VocabRepository(
         }
     }
 
-    fun getWrongBookCards(direction: String): List<Card> {
-        val wrongBook = runBlockingSafe { getWrongBookList() } ?: return emptyList()
+    suspend fun getWrongBookCards(direction: String): List<Card> {
+        val wrongBook = getWrongBookList()
         return wrongBook.map { w ->
             val isWordFirst = direction == "word-first"
             Card(
@@ -208,8 +208,8 @@ class VocabRepository(
         }
     }
 
-    fun getFavoriteCards(direction: String): List<Card> {
-        val favs = runBlockingSafe { getFavoritesList() } ?: return emptyList()
+    suspend fun getFavoriteCards(direction: String): List<Card> {
+        val favs = getFavoritesList()
         return favs.map { f ->
             val isWordFirst = direction == "word-first"
             Card(
@@ -222,11 +222,4 @@ class VocabRepository(
         }
     }
 
-    private fun <T> runBlockingSafe(block: suspend () -> T): T? {
-        return try {
-            kotlinx.coroutines.runBlocking { block() }
-        } catch (e: Exception) {
-            null
-        }
-    }
 }

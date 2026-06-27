@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'vocab-app-v1';
+var CACHE_NAME = 'vocab-app-v2';
 var STATIC_ASSETS = [
   '/index.html',
   '/style.css',
@@ -9,6 +9,7 @@ var STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', function(event) {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll(STATIC_ASSETS);
@@ -33,28 +34,41 @@ self.addEventListener('activate', function(event) {
 });
 
 self.addEventListener('fetch', function(event) {
-  event.respondWith(
-    caches.match(event.request).then(function(cachedResponse) {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  // Network-first for HTML, cache-first for static assets
+  var requestUrl = new URL(event.request.url);
+  var isHtml = requestUrl.pathname === '/' || requestUrl.pathname.endsWith('.html');
 
-      return fetch(event.request).then(function(networkResponse) {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+  if (isHtml) {
+    // Network first: always get latest HTML, fallback to cache
+    event.respondWith(
+      fetch(event.request).then(function(networkResponse) {
+        return caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(event.request, networkResponse.clone());
           return networkResponse;
+        });
+      }).catch(function() {
+        return caches.match(event.request);
+      })
+    );
+  } else {
+    // Cache-first for static assets (CSS, JS)
+    event.respondWith(
+      caches.match(event.request).then(function(cachedResponse) {
+        if (cachedResponse) {
+          return cachedResponse;
         }
-
-        if (STATIC_ASSETS.indexOf(new URL(event.request.url).pathname) !== -1) {
-          var responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then(function(cache) {
-            cache.put(event.request, responseToCache);
-          });
-        }
-
-        return networkResponse;
-      });
-    })
-  );
+        return fetch(event.request).then(function(networkResponse) {
+          if (networkResponse && networkResponse.status === 200 && STATIC_ASSETS.indexOf(requestUrl.pathname) !== -1) {
+            var responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then(function(cache) {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        });
+      })
+    );
+  }
 });
 
 self.addEventListener('message', function(event) {

@@ -5,23 +5,25 @@ const dom = {};
   'statSessions', 'statAvgAcc', 'statTotalTime',
   'dropZone', 'fileInput',
   'bankSearch', 'wordListOverlay', 'wordListTitle', 'wordListSearch', 'wordListBody', 'wordListClose', 'wordCount',
-  'btnMarket', 'marketOverlay', 'marketClose', 'marketBuiltinList', 'marketBuiltin',
+  'btnMarket', 'marketOverlay', 'marketClose', 'marketBuiltinList',
   'marketUrlImport', 'urlInput', 'btnUrlImport', 'urlStatus',
   'learnSetup', 'learnSession', 'learnResult',
   'resumeBanner', 'btnResume', 'btnClearSaved',
   'btnStart', 'btnPause', 'btnQuit',
   'flashcardArea', 'quizArea', 'typingArea',
-  'cardContainer', 'card', 'cardTag', 'cardWord', 'cardDef', 'cardHint', 'learnActions', 'cardStar',
+  'card', 'cardTag', 'cardWord', 'cardDef', 'cardHint', 'learnActions', 'cardStar', 'cardStarIcon',
   'srsActions',
   'btnForgot', 'btnRemember',
-  'quizTag', 'quizLabel', 'quizQuestion', 'quizOptions', 'quizStar',
-  'typingTag', 'typingQuestion', 'typingHint', 'typingInput', 'typingFeedback', 'typingActions', 'btnTypingNext', 'typingStar',
+  'quizTag', 'quizLabel', 'quizQuestion', 'quizOptions', 'quizStar', 'quizStarIcon',
+  'typingTag', 'typingQuestion', 'typingHint', 'typingInput', 'typingFeedback', 'typingActions', 'btnTypingNext', 'typingStar', 'typingStarIcon',
   'pauseOverlay', 'pauseInfo', 'btnContinue', 'btnSaveQuit',
   'resultTitle', 'resultBank', 'resultTotal', 'resultRemembered', 'resultAccuracy', 'resultDuration', 'resultAvgTime', 'resultForgotten',
   'btnAgain', 'btnBackToSetup',
   'progressText', 'timerDisplay',
   'themeToggle',
   'goalInput', 'goalSave', 'goalDone', 'goalTotal', 'ringFill', 'streakNum', 'goalCalendar',
+  'statsSummary',
+  'directionSet', 'modeSet',
   'statsSummary'
 ].forEach(id => { dom[id] = document.getElementById(id); });
 
@@ -62,19 +64,23 @@ const DB = {
 function applyTheme(theme) {
   const root = document.documentElement;
   if (theme === 'dark') {
-    root.setAttribute('data-theme', 'dark');
+    root.setAttribute('data-md-theme', 'dark');
   } else if (theme === 'light') {
-    root.setAttribute('data-theme', 'light');
+    root.setAttribute('data-md-theme', 'light');
   } else {
     // system: remove attribute so @media (prefers-color-scheme) takes effect
-    root.removeAttribute('data-theme');
+    root.removeAttribute('data-md-theme');
   }
   // Update toggle button icon
   const btn = dom.themeToggle;
   if (!btn) return;
-  if (theme === 'dark') btn.textContent = '🌙';
-  else if (theme === 'light') btn.textContent = '☀️';
-  else btn.textContent = window.matchMedia('(prefers-color-scheme: dark)').matches ? '🌙' : '☀️';
+  const icon = btn.querySelector('.material-symbols-outlined');
+  if (!icon) return;
+  if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    icon.textContent = 'light_mode';
+  } else {
+    icon.textContent = 'dark_mode';
+  }
 }
 
 function cycleTheme() {
@@ -219,47 +225,48 @@ function toggleFavorite(word, definition, bankName) {
 
 // Start learning from favorites
 function startFavoritesLearn() {
-  const favs = DB.getFavorites();
-  if (!favs.length) { alert('收藏夹为空'); return; }
+  const items = DB.getFavorites();
+  if (!items.length) { alert('收藏夹为空'); return; }
+  _launchSession(items, '收藏单词', false, true);
+}
 
-  document.querySelector('[data-tab="learn"]').click();
-
-  const direction = document.querySelector('input[name="direction"]:checked').value;
-  const mode = document.querySelector('input[name="mode"]:checked').value;
+// Shared session launcher for wrong book / favorites
+function _launchSession(items, bankName, isWrongBook, isFavorites) {
+  switchTab(1);
+  const MODE_NAMES = ['flashcard', 'quiz', 'typing', 'srs'];
+  const direction = dom.directionSet && dom.directionSet.getButtonSelected(0) ? 'word-first' : 'def-first';
+  let modeIndex = 0;
+  if (dom.modeSet && typeof dom.modeSet.getButtonSelected === 'function') {
+    modeIndex = [0,1,2,3].findIndex(i => dom.modeSet.getButtonSelected(i));
+    if (modeIndex < 0) modeIndex = 0;
+  }
   clearSavedSession();
 
-  const cards = favs.map(f => {
+  const cards = items.map(w => {
     const isWordFirst = direction === 'word-first';
     return {
-      word: f.word,
-      definition: f.definition,
-      front: isWordFirst ? f.word : f.definition,
-      back: isWordFirst ? f.definition : f.word,
-      _originBank: f.bankName,
+      word: w.word, definition: w.definition,
+      front: isWordFirst ? w.word : w.definition,
+      back: isWordFirst ? w.definition : w.word,
+      _originBank: w.bankName,
     };
   });
 
   learnState = {
-    bankName: '收藏单词',
-    cards: shuffle([...cards]),
-    index: 0,
-    remembered: 0,
-    forgotten: 0,
-    startTime: Date.now(),
-    timerInterval: null,
-    totalCards: cards.length,
-    answered: false,
-    mode: mode,
-    direction: direction,
-    isFavorites: true,
+    bankName, cards: shuffle([...cards]),
+    index: 0, remembered: 0, forgotten: 0,
+    startTime: Date.now(), timerInterval: null,
+    totalCards: cards.length, answered: false,
+    mode: MODE_NAMES[modeIndex], direction,
+    isWrongBook, isFavorites,
   };
-  lastSessionWasFavorites = true;
-  lastSessionWasWrongBook = false;
+  lastSessionWasWrongBook = isWrongBook;
+  lastSessionWasFavorites = isFavorites;
 
   dom.learnSetup.style.display = 'none';
   dom.learnSession.classList.add('active');
   dom.learnResult.classList.remove('active');
-  showModeArea(mode);
+  showModeArea(learnState.mode);
   resetPauseButton();
   showModeQuestion();
   startTimer();
@@ -270,7 +277,10 @@ function updateStarButton(btnEl, card) {
   if (!btnEl || !card) return;
   const bankName = card._originBank || (learnState ? learnState.bankName : '');
   const isFav = isFavorite(card.word, bankName);
-  btnEl.textContent = isFav ? '⭐' : '☆';
+  const iconSpan = btnEl.querySelector('.material-symbols-outlined');
+  if (iconSpan) {
+    iconSpan.textContent = isFav ? 'star' : 'star_outline';
+  }
   btnEl.classList.toggle('active', isFav);
 }
 
@@ -278,7 +288,10 @@ function handleStarClick(btnEl, card) {
   if (!card) return;
   const bankName = card._originBank || (learnState ? learnState.bankName : '');
   const nowFav = toggleFavorite(card.word, card.definition, bankName);
-  btnEl.textContent = nowFav ? '⭐' : '☆';
+  const iconSpan = btnEl.querySelector('.material-symbols-outlined');
+  if (iconSpan) {
+    iconSpan.textContent = nowFav ? 'star' : 'star_outline';
+  }
   btnEl.classList.toggle('active', nowFav);
   renderBanks(); // refresh favorites card
 }
@@ -394,44 +407,16 @@ function renderBanks(searchTerm) {
 
   let html = '';
 
-  // Wrong book card (shown when there are wrong words)
-  if (wrongBook.length > 0) {
-    const showWrong = !search || '错题本'.includes(search);
-    if (showWrong) {
-      const totalWrong = wrongBook.reduce((s, w) => s + w.wrongCount, 0);
-      html += `
-        <div class="bank-card wrong-book-card" data-bank="__wrongbook__" style="border-left:3px solid var(--amber);">
-          <div class="info">
-            <div class="name">📕 错题本</div>
-            <div class="meta">${wrongBook.length} 个单词 · 累计错误 ${totalWrong} 次</div>
-          </div>
-          <div class="actions">
-            <button class="btn-study">学习</button>
-            <button class="btn-export">导出</button>
-            <button class="btn-del">清空</button>
-          </div>
-        </div>`;
-    }
+  // Wrong book card
+  if (wrongBook.length > 0 && (!search || '错题本'.includes(search))) {
+    const totalWrong = wrongBook.reduce((s, w) => s + w.wrongCount, 0);
+    html += `<div class="ios-card ios-card-first"><div class="ios-cell" data-bank="__wrongbook__"><div class="info"><div class="name bold">📕 错题本</div><div class="meta">${wrongBook.length} 个单词 · 累计错误 ${totalWrong} 次</div></div><div class="actions"><md-text-button class="btn-study btn-blue">学习</md-text-button><md-text-button class="btn-export btn-gray">导出</md-text-button><md-text-button class="btn-del btn-red">清空</md-text-button></div></div></div>`;
   }
 
   // Favorites card
   const favorites = DB.getFavorites();
-  if (favorites.length > 0) {
-    const showFav = !search || '收藏'.includes(search);
-    if (showFav) {
-      html += `
-        <div class="bank-card wrong-book-card" data-bank="__favorites__" style="border-left:3px solid var(--ink);">
-          <div class="info">
-            <div class="name">⭐ 收藏单词</div>
-            <div class="meta">${favorites.length} 个单词</div>
-          </div>
-          <div class="actions">
-            <button class="btn-study">学习</button>
-            <button class="btn-export">导出</button>
-            <button class="btn-del">清空</button>
-          </div>
-        </div>`;
-    }
+  if (favorites.length > 0 && (!search || '收藏'.includes(search))) {
+    html += `<div class="ios-card"><div class="ios-cell" data-bank="__favorites__"><div class="info"><div class="name bold">⭐ 收藏单词</div><div class="meta">${favorites.length} 个单词</div></div><div class="actions"><md-text-button class="btn-study btn-blue">学习</md-text-button><md-text-button class="btn-export btn-gray">导出</md-text-button><md-text-button class="btn-del btn-red">清空</md-text-button></div></div></div>`;
   }
 
   if (!banks.length && !wrongBook.length && !favorites.length) {
@@ -445,23 +430,26 @@ function renderBanks(searchTerm) {
     html += '<div class="empty-state"><div class="icon">🔍</div><p>没有找到匹配的词库</p></div>';
   }
 
-  html += filteredBanks.map(function(b) {
+  html += '<div class="ios-card">';
+  html += filteredBanks.map(function(b, idx) {
     var due = typeof srsCountDue === 'function' ? srsCountDue(b.name) : 0;
     var dueBadge = due > 0 ? '<span class="due-badge">' + due + ' 待复习</span>' : '';
     var nameHtml = highlightMatch(escHtml(b.name), search);
-    var metaHtml = b.count + ' 个单词 · ' + new Date(b.updatedAt).toLocaleDateString() + dueBadge;
-    return '<div class="bank-card" data-bank="' + escAttr(b.name) + '">' +
+    var metaHtml = b.count + ' 个单词' + dueBadge;
+    var borderStyle = idx === filteredBanks.length - 1 ? '' : '';
+    return '<div class="ios-cell" data-bank="' + escAttr(b.name) + '">' +
       '<div class="info" data-action="view-words">' +
         '<div class="name">' + nameHtml + '</div>' +
         '<div class="meta">' + metaHtml + '</div>' +
       '</div>' +
       '<div class="actions">' +
-        '<button class="btn-study">学习</button>' +
-        '<button class="btn-export">导出</button>' +
-        '<button class="btn-del">删除</button>' +
+        '<md-text-button class="btn-study btn-blue">学习</md-text-button>' +
+        '<md-text-button class="btn-export btn-gray">导出</md-text-button>' +
+        '<md-text-button class="btn-del btn-red">删除</md-text-button>' +
       '</div>' +
     '</div>';
   }).join('');
+  html += '</div>';
 
   el.innerHTML = html;
 }
@@ -470,15 +458,15 @@ function highlightMatch(text, search) {
   if (!search) return text;
   const idx = text.toLowerCase().indexOf(search);
   if (idx === -1) return text;
-  return text.slice(0, idx) + '<mark style="background:var(--ink-100);color:var(--ink);border-radius:3px;padding:0 2px;">' +
+  return text.slice(0, idx) + '<mark class="highlight">' +
     text.slice(idx, idx + search.length) + '</mark>' + text.slice(idx + search.length);
 }
 
 function populateBankSelect() {
   const sel = dom.bankSelect;
   const banks = DB.getBanks();
-  sel.innerHTML = '<option value="">-- 请选择词库 --</option>' +
-    banks.map(b => `<option value="${escAttr(b.name)}">${escHtml(b.name)} (${b.count}词)</option>`).join('');
+  sel.innerHTML = '<md-select-option value=""><div slot="headline">-- 请选择词库 --</div></md-select-option>' +
+    banks.map(b => `<md-select-option value="${escAttr(b.name)}"><div slot="headline">${escHtml(b.name)} (${b.count}词)</div></md-select-option>`).join('');
 }
 
 function renderHistory() {
@@ -495,7 +483,7 @@ function renderHistory() {
         <span class="bank-name">${escHtml(h.bankName)}</span>
         <span class="detail">${h.total} 题 · ${h.remembered} 正确</span>
         <span class="mode-tag">${modeLabel[h.mode] || '闪卡'}</span>
-        ${h.interrupted ? '<span class="mode-tag" style="background:var(--amber-light);color:var(--amber);">中断</span>' : ''}
+        ${h.interrupted ? '<span class="mode-tag interrupted">中断</span>' : ''}
       </div>
       <div class="right">
         <div class="acc">${h.accuracy}%</div>
@@ -634,58 +622,16 @@ function shuffle(arr) {
 }
 
 function startLearn(bankName) {
-  document.querySelector('[data-tab="learn"]').click();
+  switchTab(1); // switch to learn tab (index 1)
   dom.bankSelect.value = bankName;
   beginSession();
 }
 
 // Start a study session from the wrong book
 function startWrongBookLearn() {
-  const wrongBook = DB.getWrongBook();
-  if (!wrongBook.length) { alert('错题本为空'); return; }
-
-  // Switch to learn tab (reads selected mode/direction from radio buttons)
-  document.querySelector('[data-tab="learn"]').click();
-
-  const direction = document.querySelector('input[name="direction"]:checked').value;
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  clearSavedSession();
-
-  const cards = wrongBook.map(w => {
-    const isWordFirst = direction === 'word-first';
-    return {
-      word: w.word,
-      definition: w.definition,
-      front: isWordFirst ? w.word : w.definition,
-      back: isWordFirst ? w.definition : w.word,
-      _originBank: w.bankName,
-    };
-  });
-
-  learnState = {
-    bankName: '错题本',
-    cards: shuffle([...cards]),
-    index: 0,
-    remembered: 0,
-    forgotten: 0,
-    startTime: Date.now(),
-    timerInterval: null,
-    totalCards: cards.length,
-    answered: false,
-    mode: mode,
-    direction: direction,
-    isWrongBook: true,
-  };
-  lastSessionWasWrongBook = true;
-  lastSessionWasFavorites = false;
-
-  dom.learnSetup.style.display = 'none';
-  dom.learnSession.classList.add('active');
-  dom.learnResult.classList.remove('active');
-  showModeArea(mode);
-  resetPauseButton();
-  showModeQuestion();
-  startTimer();
+  const items = DB.getWrongBook();
+  if (!items.length) { alert('错题本为空'); return; }
+  _launchSession(items, '错题本', true, false);
 }
 
 // ============ Mode Area Helper (performance: centralize show/hide) ============
@@ -802,14 +748,14 @@ function pauseSession() {
   if (el) el.style.opacity = '0.4';
   dom.btnPause.classList.add('paused');
   dom.btnPause.textContent = '⏸ 已暂停';
-  dom.pauseOverlay.classList.add('active');
+  dom.pauseOverlay.open = true;
   dom.pauseInfo.textContent =
     `已保存至第 ${learnState.index + 1}/${learnState.totalCards} 题`;
 }
 
 function continueSession() {
   if (!learnState) return;
-  dom.pauseOverlay.classList.remove('active');
+  dom.pauseOverlay.open = false;
   const el = getActiveArea();
   if (el) el.style.opacity = '1';
   resetPauseButton();
@@ -819,7 +765,7 @@ function continueSession() {
 function saveAndQuit() {
   if (!learnState) return;
   saveSession();
-  dom.pauseOverlay.classList.remove('active');
+  dom.pauseOverlay.open = false;
   const el = getActiveArea();
   if (el) el.style.opacity = '1';
   stopTimer();
@@ -844,8 +790,14 @@ function beginSession() {
   const bank = getBank(name);
   if (!bank || !bank.cards.length) { alert('词库为空'); return; }
 
-  const direction = document.querySelector('input[name="direction"]:checked').value;
-  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const MODE_NAMES = ['flashcard', 'quiz', 'typing', 'srs'];
+  const direction = dom.directionSet && dom.directionSet.getButtonSelected(0) ? 'word-first' : 'def-first';
+  let modeIndex = 0;
+  if (dom.modeSet && typeof dom.modeSet.getButtonSelected === 'function') {
+    modeIndex = [0,1,2,3].findIndex(i => dom.modeSet.getButtonSelected(i));
+    if (modeIndex < 0) modeIndex = 0;
+  }
+  const mode = MODE_NAMES[modeIndex];
   clearSavedSession();
   lastSessionWasWrongBook = false;
   lastSessionWasFavorites = false;
@@ -1246,25 +1198,45 @@ function formatDuration(seconds) {
 }
 
 // ============ Event Bindings ============
-// Tabs — bottom tab bar
-document.querySelectorAll('.tab-bar-item').forEach(tab => {
-  tab.addEventListener('click', () => {
+// Tabs — MD3 Navigation Bar
+const TAB_NAMES = ['banks', 'learn', 'stats'];
+let _navChanging = false;
+
+function switchTab(index) {
+  if (learnState) { alert('学习中，请先结束或暂停当前学习'); return; }
+  const tabName = TAB_NAMES[index];
+  if (!tabName) return;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tabName).classList.add('active');
+  // Sync the navigation bar active index (guard against re-entry)
+  _navChanging = true;
+  const nb = document.getElementById('tabBar');
+  if (nb && nb.activeIndex !== index) nb.activeIndex = index;
+  _navChanging = false;
+  if (tabName === 'stats') {
+    updateStatsSummary();
+    updateGoalUI();
+    renderHistory();
+    renderWeeklyChart();
+  }
+  if (tabName === 'learn') {
+    populateBankSelect();
+    checkSavedSession();
+  }
+}
+
+// Listen for navigation bar tab changes
+const navBar = document.getElementById('tabBar');
+if (navBar) {
+  navBar.addEventListener('navigation-bar-activated', (e) => {
+    if (_navChanging) return;
+    const index = e.detail.activeIndex;
+    const tabName = TAB_NAMES[index];
+    if (!tabName) return;
     if (learnState) { alert('学习中，请先结束或暂停当前学习'); return; }
-    document.querySelectorAll('.tab-bar-item').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('page-' + tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'stats') {
-      updateStatsSummary();
-      updateGoalUI();
-      renderHistory();
-    }
-    if (tab.dataset.tab === 'learn') {
-      populateBankSelect();
-      checkSavedSession();
-    }
+    switchTab(index);
   });
-});
+}
 
 // Theme toggle
 dom.themeToggle.addEventListener('click', cycleTheme);
@@ -1282,8 +1254,8 @@ dom.goalInput.addEventListener('keydown', e => {
 });
 
 // Bank search
-dom.bankSearch.addEventListener('input', e => {
-  renderBanks(e.target.value);
+dom.bankSearch.addEventListener('input', () => {
+  debouncedBankSearch(dom.bankSearch.value);
 });
 
 // Word list overlay
@@ -1293,10 +1265,10 @@ dom.wordListClose.addEventListener('click', () => {
 dom.wordListOverlay.addEventListener('click', e => {
   if (e.target === dom.wordListOverlay) dom.wordListOverlay.classList.remove('active');
 });
-dom.wordListSearch.addEventListener('input', e => {
+dom.wordListSearch.addEventListener('input', () => {
   const bankName = dom.wordListTitle.textContent;
   const bank = getBank(bankName);
-  if (bank) renderWordList(bank.cards, e.target.value);
+  if (bank) renderWordList(bank.cards, dom.wordListSearch.value);
 });
 
 // ============ 词库市场 ============
@@ -1309,7 +1281,7 @@ function renderMarketBuiltin() {
       if (window.BUILT_IN_BANKS && BUILT_IN_BANKS.length) {
         renderMarketBuiltin();
       } else {
-        dom.marketBuiltinList.innerHTML = '<div class="market-loading" style="padding:40px;text-align:center;color:var(--ink-300);">❌ 词库数据加载失败，请刷新页面重试</div>';
+        dom.marketBuiltinList.innerHTML = '<div class="market-loading">❌ 词库数据加载失败，请刷新页面重试</div>';
       }
     }, 500);
     return;
@@ -1323,7 +1295,7 @@ function renderMarketBuiltin() {
         <div class="market-item-size">${b.size}</div>
       </div>
       <div class="market-item-action">
-        <button class="btn-market-download" data-name="${escAttr(b.name)}">导入</button>
+        <md-filled-button class="btn-market-download" data-name="${escAttr(b.name)}">导入</md-filled-button>
       </div>
     </div>
   `).join('');
@@ -1374,33 +1346,29 @@ function downloadUrlBank(url) {
 // 词库市场 - 按钮
 dom.btnMarket.addEventListener('click', () => {
   renderMarketBuiltin();
-  dom.marketOverlay.classList.add('active');
+  dom.marketOverlay.open = true;
 });
 
 // 词库市场 - 关闭
 dom.marketClose.addEventListener('click', () => {
-  dom.marketOverlay.classList.remove('active');
+  dom.marketOverlay.open = false;
   dom.urlStatus.className = 'url-status';
   dom.urlStatus.textContent = '';
 });
-dom.marketOverlay.addEventListener('click', e => {
-  if (e.target === dom.marketOverlay) {
-    dom.marketOverlay.classList.remove('active');
-    dom.urlStatus.className = 'url-status';
-    dom.urlStatus.textContent = '';
-  }
-});
 
-// 词库市场 - Tab 切换
-document.querySelectorAll('.market-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.market-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.market-content').forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    const content = document.getElementById('market' + tab.dataset.tab.replace(/^./, c => c.toUpperCase()).replace(/-./g, s => s[1].toUpperCase()));
-    if (content) content.classList.add('active');
+// 词库市场 - Tab 切换 (md-tabs)
+const marketTabs = document.getElementById('marketTabs');
+if (marketTabs) {
+  marketTabs.addEventListener('change', (e) => {
+    const index = e.target.activeTabIndex;
+    document.querySelectorAll('.market-tab-content').forEach(c => c.style.display = 'none');
+    if (index === 0) {
+      document.getElementById('marketBuiltin').style.display = 'block';
+    } else {
+      document.getElementById('marketUrlImport').style.display = 'block';
+    }
   });
-});
+}
 
 // 词库市场 - 内置词库导入（委托）
 dom.marketBuiltinList.addEventListener('click', e => {
@@ -1468,25 +1436,26 @@ dz.addEventListener('drop', e => {
 
 // Bank list action delegation
 dom.bankList.addEventListener('click', e => {
-  const btn = e.target.closest('button');
-  const infoDiv = e.target.closest('.info');
-  const card = e.target.closest('.bank-card');
+  const card = e.target.closest('.ios-cell');
   if (!card) return;
   const name = card.dataset.bank;
 
   // Click on info area → show word list (only for real banks, not wrong book)
-  if (!btn && infoDiv && name !== '__wrongbook__' && name !== '__favorites__') {
+  const infoDiv = e.target.closest('.info');
+  const studyBtn = e.target.closest('.btn-study');
+  const exportBtn = e.target.closest('.btn-export');
+  const delBtn = e.target.closest('.btn-del');
+
+  if (!studyBtn && !exportBtn && !delBtn && infoDiv && name !== '__wrongbook__' && name !== '__favorites__') {
     showWordList(name);
     return;
   }
-  // Not clicking a button and not an info area click — ignore
-  if (!btn) return;
 
-  // Wrong book card has a special bank name
+  // Wrong book card
   if (name === '__wrongbook__') {
-    if (btn.classList.contains('btn-study')) { startWrongBookLearn(); }
-    if (btn.classList.contains('btn-export')) { exportWrongBook(); }
-    if (btn.classList.contains('btn-del')) {
+    if (studyBtn) { startWrongBookLearn(); }
+    if (exportBtn) { exportWrongBook(); }
+    if (delBtn) {
       if (confirm('清空错题本？此操作不可撤销。')) { DB.setWrongBook([]); renderBanks(); }
     }
     return;
@@ -1494,23 +1463,23 @@ dom.bankList.addEventListener('click', e => {
 
   // Favorites card
   if (name === '__favorites__') {
-    if (btn.classList.contains('btn-study')) { startFavoritesLearn(); }
-    if (btn.classList.contains('btn-export')) { exportFavorites(); }
-    if (btn.classList.contains('btn-del')) {
+    if (studyBtn) { startFavoritesLearn(); }
+    if (exportBtn) { exportFavorites(); }
+    if (delBtn) {
       if (confirm('清空收藏夹？')) { DB.setFavorites([]); renderBanks(); }
     }
     return;
   }
 
-  if (btn.classList.contains('btn-study')) { startLearn(name); }
-  if (btn.classList.contains('btn-export')) { exportBank(name); }
-  if (btn.classList.contains('btn-del')) {
+  if (studyBtn) { startLearn(name); }
+  if (exportBtn) { exportBank(name); }
+  if (delBtn) {
     if (confirm(`删除词库「${name}」？`)) { deleteBank(name); }
   }
 });
 
 // Flashcard & SRS card flip
-dom.cardContainer.addEventListener('click', e => {
+dom.card.addEventListener('click', e => {
   if (e.target.closest('.star-btn')) return;
   if (!learnState || learnState.answered) return;
   if (learnState.mode === 'srs') {
@@ -1578,7 +1547,7 @@ dom.btnBackToSetup.addEventListener('click', () => {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
-  if (dom.pauseOverlay.classList.contains('active')) {
+  if (dom.pauseOverlay.open) {
     if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); continueSession(); }
     return;
   }
@@ -1622,6 +1591,42 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ============ Weekly Chart ============
+function renderWeeklyChart() {
+  const el = document.getElementById('weeklyChart');
+  if (!el) return;
+  const history = DB.getHistory();
+  const checkins = DB.getCheckins();
+  const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+  const now = new Date();
+  const data = [];
+  let maxVal = 1;
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const count = checkins[key] || 0;
+    data.push({ day: dayNames[d.getDay()], count, isToday: i === 0 });
+    if (count > maxVal) maxVal = count;
+  }
+  el.innerHTML = data.map(d => {
+    const pct = Math.max((d.count / maxVal) * 100, 3);
+    const barClass = d.count === 0 ? 'bar zero' : 'bar';
+    return `<div class="bar-col">
+      <div class="bar-value">${d.count || ''}</div>
+      <div class="${barClass}" style="height:${pct}%"></div>
+      <div class="bar-label" style="${d.isToday ? 'font-weight:700;color:var(--ios-blue)' : ''}">${d.day}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============ Search Debounce ============
+let _searchTimer = null;
+function debouncedBankSearch(query) {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => renderBanks(query), 200);
+}
+
 // ============ Init ============
 function initApp() {
   applyTheme(DB.getTheme());
@@ -1631,11 +1636,27 @@ function initApp() {
   checkSavedSession();
   renderHistory();
   updateStatsSummary();
+  renderWeeklyChart();
+}
+
+// Wait for MD3 components to be defined before initializing
+// (handles race condition with module imports from CDN)
+function safeInit() {
+  // Check if custom elements are defined
+  if (window.customElements && customElements.get('md-filled-button')) {
+    initApp();
+  } else {
+    // Wait for at least one key component to be defined
+    Promise.race([
+      customElements.whenDefined('md-filled-button'),
+      new Promise(resolve => setTimeout(resolve, 5000)) // fallback after 5s
+    ]).then(initApp);
+  }
 }
 
 // Use DOMContentLoaded to ensure DOM is ready, especially on mobile PWA
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
+  document.addEventListener('DOMContentLoaded', safeInit);
 } else {
-  initApp();
+  safeInit();
 }

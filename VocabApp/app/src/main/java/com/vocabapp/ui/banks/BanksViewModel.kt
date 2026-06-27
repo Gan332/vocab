@@ -37,6 +37,9 @@ class BanksViewModel(
     private val _uiState = MutableStateFlow(BanksUiState())
     val uiState: StateFlow<BanksUiState> = _uiState.asStateFlow()
 
+    private val _exportContent = MutableStateFlow<ExportContent?>(null)
+    val exportContent: StateFlow<ExportContent?> = _exportContent.asStateFlow()
+
     private val searchQuery = MutableStateFlow("")
 
     init {
@@ -158,33 +161,32 @@ class BanksViewModel(
         }
     }
 
-    fun exportBank(name: String): String? {
-        val words = runBlocking {
-            repository.getWordsByBankList(name)
+    fun exportBank(name: String) {
+        viewModelScope.launch {
+            val words = repository.getWordsByBankList(name)
+            val content = words.joinToString("\n") { "${it.word} - ${it.definition}" }
+            _exportContent.value = ExportContent(filename = "${name}.txt", content = content)
         }
-        return words?.joinToString("\n") { "${it.word} - ${it.definition}" }
     }
 
-    fun exportWrongBook(): String? {
-        val entries = runBlocking {
-            repository.getWrongBookList()
+    fun exportWrongBook() {
+        viewModelScope.launch {
+            val entries = repository.getWrongBookList()
+            val content = entries.joinToString("\n") { "${it.word} - ${it.definition}" }
+            _exportContent.value = ExportContent(filename = "错题本.txt", content = content)
         }
-        return entries?.joinToString("\n") { "${it.word} - ${it.definition}" }
     }
 
-    fun exportFavorites(): String? {
-        val entries = runBlocking {
-            repository.getFavoritesList()
+    fun exportFavorites() {
+        viewModelScope.launch {
+            val entries = repository.getFavoritesList()
+            val content = entries.joinToString("\n") { "${it.word} - ${it.definition}" }
+            _exportContent.value = ExportContent(filename = "收藏单词.txt", content = content)
         }
-        return entries?.joinToString("\n") { "${it.word} - ${it.definition}" }
     }
 
-    private fun <T> runBlocking(block: suspend () -> T): T? {
-        return try {
-            kotlinx.coroutines.runBlocking { block() }
-        } catch (e: Exception) {
-            null
-        }
+    fun clearExportContent() {
+        _exportContent.value = null
     }
 
     private fun getBuiltInBankCards(name: String): List<WordPair> {
@@ -208,6 +210,11 @@ class BanksViewModel(
     }
 }
 
+data class ExportContent(
+    val filename: String,
+    val content: String
+)
+ 
 // Sample built-in word data
 private val cet4Words = listOf(
     WordPair("abandon", "放弃"), WordPair("ability", "能力，才能"),
